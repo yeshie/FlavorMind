@@ -1,4 +1,4 @@
-// src/common/components/Button/Button.tsx
+// src/common/components/Button/button.tsx
 import React from 'react';
 import {
   TouchableOpacity,
@@ -49,20 +49,20 @@ const Button: React.FC<ButtonProps> = ({
 
   const buttonStyles: (ViewStyle | undefined)[] = [
     styles.button,
-    styles[`button_${variant}`],
-    styles[`button_${size}`],
+    styles[`button_${variant}` as keyof typeof styles] as ViewStyle,
+    styles[`button_${size}` as keyof typeof styles] as ViewStyle,
     fullWidth ? styles.fullWidth : undefined,
     isDisabled ? styles.disabled : undefined,
     style,
   ];
 
-  const textStyles: TextStyle[] = [
+  const textStyles: (TextStyle | false | undefined)[] = [
     styles.text,
-    styles[`text_${variant}`],
-    styles[`text_${size}`],
-    isDisabled && styles.textDisabled,
+    styles[`text_${variant}` as keyof typeof styles] as TextStyle,
+    styles[`text_${size}` as keyof typeof styles] as TextStyle,
+    isDisabled ? styles.textDisabled : false,
     textStyle,
-  ];
+  ].filter(Boolean) as TextStyle[];
 
   const iconSize = size === 'small' ? 16 : size === 'large' ? 24 : 20;
 

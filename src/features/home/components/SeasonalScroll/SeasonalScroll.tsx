@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
   },
   card: {
     width: moderateScale(130),
-    backgroundColor: COLORS.background.card,
+    backgroundColor: COLORS.background.white,
     borderRadius: BORDER_RADIUS.lg,
     ...SHADOWS.small,
     overflow: 'hidden',

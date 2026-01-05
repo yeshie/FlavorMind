@@ -161,7 +161,7 @@ const HomeScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <Header
         userName={userData.name}
         location={userData.location}
@@ -207,10 +207,11 @@ const HomeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background.main,
+    backgroundColor: COLORS.background.header,
   },
   scrollView: {
     flex: 1,
+    backgroundColor: COLORS.background.main,
   },
 });
 

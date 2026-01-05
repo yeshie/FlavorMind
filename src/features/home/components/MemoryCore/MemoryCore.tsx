@@ -12,7 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../../common/utils/responsive';
-import Button from '../../../../common/components/Button/Button';
+import Button from '../../../../common/components/Button/button';
 
 interface MemoryCoreProps {
   onGenerate: (query: string) => void;
@@ -32,20 +32,22 @@ const MemoryCore: React.FC<MemoryCoreProps> = ({ onGenerate, onVoicePress }) => 
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={COLORS.secondary.gradient}
+        colors={['#E9A23B', '#F5B95F', '#FFC97A']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.card}
       >
-        <View style={styles.iconContainer}>
-          <Image
-            source={require('../../../../assets/icons/memory.png')}
-            style={styles.brainIcon}
-            resizeMode="contain"
-          />
+        <View style={styles.headerContainer}>
+          <View style={styles.iconContainer}>
+            <Image
+              source={require('../../../../assets/icons/memory.png')}
+              style={styles.brainIcon}
+              resizeMode="contain"
+            />
+          </View>
+          <Text style={styles.title}>Recreate a Food Memory</Text>
         </View>
 
-        <Text style={styles.title}>Recreate a Food Memory</Text>
         <Text style={styles.subtitle}>
           Describe a taste, smell, or texture you remember
         </Text>
@@ -102,6 +104,11 @@ const styles = StyleSheet.create({
     padding: moderateScale(SPACING.xl),
     ...SHADOWS.large,
   },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: moderateScale(SPACING.md),
+  },
   iconContainer: {
     width: moderateScale(48),
     height: moderateScale(48),
@@ -109,7 +116,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: moderateScale(SPACING.md),
+    marginRight: moderateScale(SPACING.md),
   },
   brainIcon: {
     width: moderateScale(28),
@@ -120,7 +127,7 @@ const styles = StyleSheet.create({
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize['2xl']),
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.text.white,
-    marginBottom: moderateScale(SPACING.xs),
+    flex: 1,
   },
   subtitle: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.sm),

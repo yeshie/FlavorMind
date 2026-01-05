@@ -31,10 +31,10 @@ const Card: React.FC<CardProps> = ({
 }) => {
   const cardStyles: ViewStyle[] = [
     styles.card,
-    styles[`card_${variant}`],
-    styles[`padding_${padding}`],
+    styles[`card_${variant}` as keyof typeof styles] as ViewStyle,
+    styles[`padding_${padding}` as keyof typeof styles] as ViewStyle,
     style,
-  ];
+  ].filter(Boolean) as ViewStyle[];
 
   if (onPress) {
     return (
@@ -59,7 +59,7 @@ const Card: React.FC<CardProps> = ({
 const styles = StyleSheet.create({
   card: {
     borderRadius: BORDER_RADIUS.lg,
-    backgroundColor: COLORS.background.card,
+    backgroundColor: COLORS.background.white,
   },
   
   // Variants
@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border.light,
   },
   card_filled: {
-    backgroundColor: COLORS.background.main,
+    backgroundColor: COLORS.background.secondary,
   },
   
   // Padding

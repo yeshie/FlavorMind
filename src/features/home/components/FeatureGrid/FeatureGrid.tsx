@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '48%',
-    backgroundColor: COLORS.background.card,
+    backgroundColor: COLORS.background.white,
     borderRadius: BORDER_RADIUS.lg,
     padding: moderateScale(SPACING.lg),
     alignItems: 'center',

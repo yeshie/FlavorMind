@@ -1,4 +1,4 @@
-// src/constants/theme.ts
+// src/constants/theme.ts - Updated with additional colors
 
 export const COLORS = {
   primary: {
@@ -10,15 +10,20 @@ export const COLORS = {
     main: '#4ECDC4',
     light: '#7ED9D2',
     dark: '#3BA39C',
+    gradient: ['#4ECDC4', '#44A08D'], // Added gradient colors
   },
   background: {
     primary: '#FFFFFF',
     secondary: '#F8F9FA',
     tertiary: '#E9ECEF',
+    main: '#FFFFFF', // Added for consistency
+    card: '#FFFFFF', // Added for card backgrounds
+    white: '#FFFFFF', // Added for white backgrounds
   },
   text: {
     primary: '#212529',
     secondary: '#6C757D',
+    tertiary: '#ADB5BD', // Added for placeholder text
     white: '#FFFFFF',
     disabled: '#ADB5BD',
   },
@@ -30,6 +35,8 @@ export const COLORS = {
   },
   badge: {
     match: 'rgba(76, 175, 80, 0.9)',
+    highHarvest: 'rgba(76, 175, 80, 0.9)', // Added for seasonal items
+    lowPrice: 'rgba(33, 150, 243, 0.9)', // Added for seasonal items
   },
   border: {
     light: '#DEE2E6',
@@ -115,4 +122,9 @@ export const SHADOWS = {
     shadowRadius: 10,
     elevation: 8,
   },
+};
+
+export const LAYOUT = {
+  containerPadding: 16,
+  bottomTabHeight: 60,
 };

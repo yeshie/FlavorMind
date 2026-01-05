@@ -51,7 +51,11 @@ const Input: React.FC<InputProps> = ({
         )}
         
         <TextInput
-          style={[styles.input, leftIcon && styles.inputWithLeftIcon, style]}
+          style={[
+            styles.input,
+            leftIcon ? { marginLeft: moderateScale(SPACING.sm) } : undefined,
+            style,
+          ]}
           placeholderTextColor={COLORS.text.tertiary}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
@@ -105,9 +109,6 @@ const styles = StyleSheet.create({
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
     color: COLORS.text.primary,
     paddingVertical: moderateScale(SPACING.md),
-  },
-  inputWithLeftIcon: {
-    marginLeft: moderateScale(SPACING.sm),
   },
   leftIcon: {
     width: moderateScale(20),

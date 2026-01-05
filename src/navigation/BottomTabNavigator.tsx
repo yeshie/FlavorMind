@@ -11,7 +11,7 @@ import HomeScreen from '../features/home/screens/HomeScreen';
 // Placeholder screens - Replace with actual screens later
 const MemoryScreen = () => (
   <View style={styles.placeholder}>
-    <Text style={styles.placeholderText}>Memory Screen</Text>
+    <Text style={styles.placeholderText}>Memory Recall Screen</Text>
   </View>
 );
 
@@ -21,15 +21,15 @@ const CreateScreen = () => (
   </View>
 );
 
-const CookbookScreen = () => (
+const SearchScreen = () => (
   <View style={styles.placeholder}>
-    <Text style={styles.placeholderText}>Cookbook Screen</Text>
+    <Text style={styles.placeholderText}>Search Recipes Screen</Text>
   </View>
 );
 
-const TrendsScreen = () => (
+const LibraryScreen = () => (
   <View style={styles.placeholder}>
-    <Text style={styles.placeholderText}>Trends & Analytics Screen</Text>
+    <Text style={styles.placeholderText}>Saved Recipe Library Screen</Text>
   </View>
 );
 
@@ -43,9 +43,9 @@ const BottomTabNavigator: React.FC = () => {
         tabBarActiveTintColor: COLORS.primary.main,
         tabBarInactiveTintColor: COLORS.text.secondary,
         tabBarStyle: {
-          height: LAYOUT.bottomTabHeight,
-          paddingBottom: moderateScale(SPACING.xs),
-          paddingTop: moderateScale(SPACING.xs),
+          height: moderateScale(70),
+          paddingBottom: moderateScale(SPACING.sm),
+          paddingTop: moderateScale(SPACING.sm),
           borderTopWidth: 1,
           borderTopColor: COLORS.border.light,
           backgroundColor: COLORS.background.white,
@@ -53,6 +53,7 @@ const BottomTabNavigator: React.FC = () => {
         tabBarLabelStyle: {
           fontSize: scaleFontSize(TYPOGRAPHY.fontSize.xs),
           fontWeight: TYPOGRAPHY.fontWeight.medium,
+          marginTop: moderateScale(2),
         },
         tabBarIcon: ({ focused, color }) => {
           let iconSource;
@@ -67,14 +68,27 @@ const BottomTabNavigator: React.FC = () => {
             case 'Create':
               iconSource = require('../assets/icons/plus.png');
               break;
-            case 'Cookbook':
-              iconSource = require('../assets/icons/book.png');
+            case 'Search':
+              iconSource = require('../assets/icons/search.png');
               break;
-            case 'Trends':
-              iconSource = require('../assets/icons/chart.png');
+            case 'Library':
+              iconSource = require('../assets/icons/book.png');
               break;
             default:
               iconSource = require('../assets/icons/home.png');
+          }
+
+          // Special styling for Create button
+          if (route.name === 'Create') {
+            return (
+              <View style={tabStyles.createIconContainer}>
+                <Image
+                  source={iconSource}
+                  style={[tabStyles.createIcon, { tintColor: COLORS.text.white }]}
+                  resizeMode="contain"
+                />
+              </View>
+            );
           }
 
           return (
@@ -89,7 +103,6 @@ const BottomTabNavigator: React.FC = () => {
                 style={[
                   tabStyles.icon,
                   { tintColor: color },
-                  route.name === 'Create' && tabStyles.createIcon,
                 ]}
                 resizeMode="contain"
               />
@@ -113,26 +126,17 @@ const BottomTabNavigator: React.FC = () => {
         component={CreateScreen}
         options={{
           tabBarLabel: 'Create',
-          tabBarIcon: ({ color }) => (
-            <View style={tabStyles.createIconContainer}>
-              <Image
-                source={require('../assets/icons/plus.png')}
-                style={[tabStyles.createIcon, { tintColor: COLORS.text.white }]}
-                resizeMode="contain"
-              />
-            </View>
-          ),
         }}
       />
       <Tab.Screen
-        name="Cookbook"
-        component={CookbookScreen}
-        options={{ tabBarLabel: 'Library' }}
+        name="Search"
+        component={SearchScreen}
+        options={{ tabBarLabel: 'Search' }}
       />
       <Tab.Screen
-        name="Trends"
-        component={TrendsScreen}
-        options={{ tabBarLabel: 'Trends' }}
+        name="Library"
+        component={LibraryScreen}
+        options={{ tabBarLabel: 'Library' }}
       />
     </Tab.Navigator>
   );
@@ -143,7 +147,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background.main,
+    backgroundColor: COLORS.background.secondary,
   },
   placeholderText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.lg),
@@ -159,11 +163,11 @@ const tabStyles = StyleSheet.create({
     alignItems: 'center',
   },
   iconContainerActive: {
-    transform: [{ scale: 1.1 }],
+    transform: [{ scale: 1.05 }],
   },
   icon: {
-    width: moderateScale(24),
-    height: moderateScale(24),
+    width: moderateScale(22),
+    height: moderateScale(22),
   },
   createIconContainer: {
     width: moderateScale(56),
@@ -172,7 +176,7 @@ const tabStyles = StyleSheet.create({
     backgroundColor: COLORS.primary.main,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: moderateScale(-20),
+    marginTop: moderateScale(-28),
     shadowColor: COLORS.primary.main,
     shadowOffset: {
       width: 0,
@@ -183,8 +187,8 @@ const tabStyles = StyleSheet.create({
     elevation: 8,
   },
   createIcon: {
-    width: moderateScale(28),
-    height: moderateScale(28),
+    width: moderateScale(26),
+    height: moderateScale(26),
   },
 });
 
