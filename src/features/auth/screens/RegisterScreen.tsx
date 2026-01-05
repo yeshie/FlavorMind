@@ -15,7 +15,7 @@ import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../../constants/t
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Input from '../../../common/components/Input/Input';
 import Button from '../../../common/components/Button/button';
-import { registerUser } from '../services/authService';
+import { registerUser } from '../services/firebaseAuthService';
 
 interface RegisterScreenProps {
   navigation: any;

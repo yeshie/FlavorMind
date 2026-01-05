@@ -4,7 +4,7 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { COLORS } from '../constants/theme';
-import { isAuthenticated } from '../features/auth/services/authService';
+import { isAuthenticated } from '../features/auth/services/firebaseAuthService';
 import SplashScreen from '../features/auth/screens/SplashScreen';
 import AuthNavigator from './AuthNavigator';
 import BottomTabNavigator from './BottomTabNavigator';

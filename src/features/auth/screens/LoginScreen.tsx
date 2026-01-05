@@ -1,5 +1,5 @@
-// src/features/auth/screens/LoginScreen.tsx
-import React, { useState } from 'react';
+// src/features/auth/screens/LoginScreen.tsx - ENHANCED
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,19 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Input from '../../../common/components/Input/Input';
 import Button from '../../../common/components/Button/button';
-import { loginUser } from '../services/authService';
+import {
+  loginWithEmail,
+  loginWithGoogle,
+  loginWithApple,
+  getRememberedEmail,
+} from '../../../services/firebase/authService';
 
 interface LoginScreenProps {
   navigation: any;
@@ -26,6 +32,19 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+
+  useEffect(() => {
+    loadRememberedEmail();
+  }, []);
+
+  const loadRememberedEmail = async () => {
+    const savedEmail = await getRememberedEmail();
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberMe(true);
+    }
+  };
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -33,7 +52,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   };
 
   const handleLogin = async () => {
-    // Validation
     if (!email.trim() || !password.trim()) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
@@ -52,12 +70,11 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     setLoading(true);
 
     try {
-      const response = await loginUser(email, password);
+      const response = await loginWithEmail(email, password, rememberMe);
       
       if (response.success) {
-        // Navigate to main app
         Alert.alert('Success', 'Login successful!');
-        // navigation.replace('Main'); // Uncomment when navigation is set up
+        // Navigation will be handled by RootNavigator
       } else {
         Alert.alert('Error', response.message || 'Login failed');
       }
@@ -66,6 +83,46 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      const response = await loginWithGoogle();
+      if (response.success) {
+        Alert.alert('Success', 'Google Sign-In successful!');
+      } else {
+        Alert.alert('Info', response.message || 'Google Sign-In not yet implemented');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    setLoading(true);
+    try {
+      const response = await loginWithApple();
+      if (response.success) {
+        Alert.alert('Success', 'Apple Sign-In successful!');
+      } else {
+        Alert.alert('Info', response.message || 'Apple Sign-In not yet implemented');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = () => {
+    navigation.navigate('ForgotPassword');
+  };
+
+  const handleOTPLogin = () => {
+    navigation.navigate('OTPLogin');
   };
 
   return (
@@ -97,7 +154,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
-              leftIcon={require('../../../assets/icons/email.png')}
             />
 
             <Input
@@ -107,22 +163,24 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
-              leftIcon={require('../../../assets/icons/lock.png')}
-              rightIcon={
-                showPassword
-                  ? require('../../../assets/icons/eye-off.png')
-                  : require('../../../assets/icons/eye.png')
-              }
-              onRightIconPress={() => setShowPassword(!showPassword)}
             />
 
-            {/* Forgot Password */}
-            <TouchableOpacity
-              style={styles.forgotPassword}
-              onPress={() => Alert.alert('Forgot Password', 'Feature coming soon')}
-            >
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-            </TouchableOpacity>
+            {/* Remember Me & Forgot Password Row */}
+            <View style={styles.optionsRow}>
+              <View style={styles.rememberMeContainer}>
+                <Switch
+                  value={rememberMe}
+                  onValueChange={setRememberMe}
+                  trackColor={{ false: COLORS.border.light, true: COLORS.primary.light }}
+                  thumbColor={rememberMe ? COLORS.primary.main : COLORS.background.white}
+                />
+                <Text style={styles.rememberMeText}>Remember me</Text>
+              </View>
+
+              <TouchableOpacity onPress={handleForgotPassword}>
+                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+              </TouchableOpacity>
+            </View>
 
             {/* Login Button */}
             <Button
@@ -136,21 +194,40 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               Sign In
             </Button>
 
+            {/* OTP Login Option */}
+            <TouchableOpacity
+              style={styles.otpLoginButton}
+              onPress={handleOTPLogin}
+            >
+              <Text style={styles.otpLoginText}>Login with OTP instead</Text>
+            </TouchableOpacity>
+
             {/* Divider */}
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>OR</Text>
+              <Text style={styles.dividerText}>OR CONTINUE WITH</Text>
               <View style={styles.dividerLine} />
             </View>
 
-            {/* Social Login Buttons - Optional */}
+            {/* Social Login Buttons */}
             <View style={styles.socialButtons}>
               <TouchableOpacity
                 style={styles.socialButton}
-                onPress={() => Alert.alert('Google Sign In', 'Feature coming soon')}
+                onPress={handleGoogleSignIn}
+                disabled={loading}
               >
-                <Text style={styles.socialButtonText}>Continue with Google</Text>
+                <Text style={styles.socialButtonText}>🔍 Google</Text>
               </TouchableOpacity>
+
+              {Platform.OS === 'ios' && (
+                <TouchableOpacity
+                  style={styles.socialButton}
+                  onPress={handleAppleSignIn}
+                  disabled={loading}
+                >
+                  <Text style={styles.socialButtonText}> Apple</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Sign Up Link */}
@@ -198,9 +275,20 @@ const styles = StyleSheet.create({
   form: {
     flex: 1,
   },
-  forgotPassword: {
-    alignSelf: 'flex-end',
+  optionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: moderateScale(SPACING.xl),
+  },
+  rememberMeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  rememberMeText: {
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.sm),
+    color: COLORS.text.primary,
+    marginLeft: moderateScale(SPACING.xs),
   },
   forgotPasswordText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.sm),
@@ -208,7 +296,17 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.medium,
   },
   loginButton: {
+    marginBottom: moderateScale(SPACING.md),
+  },
+  otpLoginButton: {
+    alignItems: 'center',
+    paddingVertical: moderateScale(SPACING.sm),
     marginBottom: moderateScale(SPACING.xl),
+  },
+  otpLoginText: {
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.sm),
+    color: COLORS.secondary.main,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
   },
   divider: {
     flexDirection: 'row',
@@ -222,18 +320,23 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     marginHorizontal: moderateScale(SPACING.md),
-    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.sm),
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.xs),
     color: COLORS.text.secondary,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
   },
   socialButtons: {
+    flexDirection: 'row',
+    gap: moderateScale(SPACING.md),
     marginBottom: moderateScale(SPACING.xl),
   },
   socialButton: {
+    flex: 1,
     borderWidth: 1,
     borderColor: COLORS.border.main,
     borderRadius: BORDER_RADIUS.md,
     paddingVertical: moderateScale(SPACING.md),
     alignItems: 'center',
+    backgroundColor: COLORS.background.white,
   },
   socialButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),

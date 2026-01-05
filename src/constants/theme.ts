@@ -1,4 +1,4 @@
-// src/constants/theme.ts - Updated with additional colors
+// src/constants/theme.ts - COMPLETE FIXED VERSION
 
 export const COLORS = {
   primary: {
@@ -10,20 +10,28 @@ export const COLORS = {
     main: '#4ECDC4',
     light: '#7ED9D2',
     dark: '#3BA39C',
-    gradient: ['#4ECDC4', '#44A08D'], // Added gradient colors
+    gradient: ['#4ECDC4', '#44A08D'],
+  },
+  // FIXED: Added missing pastelGreen
+  pastelGreen: {
+    main: '#81C784',
+    light: '#A5D6A7',
+    dark: '#66BB6A',
   },
   background: {
     primary: '#FFFFFF',
     secondary: '#F8F9FA',
     tertiary: '#E9ECEF',
-    main: '#FFFFFF', // Added for consistency
-    card: '#FFFFFF', // Added for card backgrounds
-    white: '#FFFFFF', // Added for white backgrounds
+    main: '#FFFFFF',
+    card: '#FFFFFF',
+    white: '#FFFFFF',
+    // FIXED: Added missing header background
+    header: '#E8F5E9', // Light green for header
   },
   text: {
     primary: '#212529',
     secondary: '#6C757D',
-    tertiary: '#ADB5BD', // Added for placeholder text
+    tertiary: '#ADB5BD',
     white: '#FFFFFF',
     disabled: '#ADB5BD',
   },
@@ -35,8 +43,8 @@ export const COLORS = {
   },
   badge: {
     match: 'rgba(76, 175, 80, 0.9)',
-    highHarvest: 'rgba(76, 175, 80, 0.9)', // Added for seasonal items
-    lowPrice: 'rgba(33, 150, 243, 0.9)', // Added for seasonal items
+    highHarvest: 'rgba(76, 175, 80, 0.9)',
+    lowPrice: 'rgba(33, 150, 243, 0.9)',
   },
   border: {
     light: '#DEE2E6',
