@@ -1,4 +1,4 @@
-// src/features/auth/screens/RegisterScreen.tsx
+// src/features/auth/screens/RegisterScreen.tsx - ENHANCED
 import React, { useState } from 'react';
 import {
   View,
@@ -15,7 +15,7 @@ import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../../constants/t
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Input from '../../../common/components/Input/Input';
 import Button from '../../../common/components/Button/button';
-import { registerUser } from '../services/firebaseAuthService';
+import { registerWithEmail } from '../../../services/firebase/authService';
 
 interface RegisterScreenProps {
   navigation: any;
@@ -29,6 +29,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -62,10 +63,15 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
       return;
     }
 
+    if (!agreedToTerms) {
+      Alert.alert('Error', 'Please agree to Terms & Conditions to continue');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const response = await registerUser(name, email, password);
+      const response = await registerWithEmail(name, email, password);
       
       if (response.success) {
         Alert.alert(
@@ -86,6 +92,14 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogleSignUp = () => {
+    Alert.alert('Google Sign Up', 'Coming soon with Firebase integration');
+  };
+
+  const handleAppleSignUp = () => {
+    Alert.alert('Apple Sign Up', 'Coming soon with Firebase integration');
   };
 
   return (
@@ -115,7 +129,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
               value={name}
               onChangeText={setName}
               autoCapitalize="words"
-              leftIcon={require('../../../assets/icons/user.png')}
+              autoComplete="name"
             />
 
             <Input
@@ -126,23 +140,15 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
-              leftIcon={require('../../../assets/icons/email.png')}
             />
 
             <Input
               label="Password"
-              placeholder="Create a password"
+              placeholder="Create a password (min 6 characters)"
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
-              leftIcon={require('../../../assets/icons/lock.png')}
-              rightIcon={
-                showPassword
-                  ? require('../../../assets/icons/eye-off.png')
-                  : require('../../../assets/icons/eye.png')
-              }
-              onRightIconPress={() => setShowPassword(!showPassword)}
             />
 
             <Input
@@ -152,24 +158,30 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
               onChangeText={setConfirmPassword}
               secureTextEntry={!showConfirmPassword}
               autoCapitalize="none"
-              leftIcon={require('../../../assets/icons/lock.png')}
-              rightIcon={
-                showConfirmPassword
-                  ? require('../../../assets/icons/eye-off.png')
-                  : require('../../../assets/icons/eye.png')
-              }
-              onRightIconPress={() => setShowConfirmPassword(!showConfirmPassword)}
             />
 
-            {/* Terms and Conditions */}
-            <View style={styles.termsContainer}>
-              <Text style={styles.termsText}>
-                By signing up, you agree to our{' '}
-              </Text>
-              <TouchableOpacity onPress={() => Alert.alert('Terms', 'Feature coming soon')}>
-                <Text style={styles.termsLink}>Terms & Conditions</Text>
-              </TouchableOpacity>
-            </View>
+            {/* Terms and Conditions Checkbox */}
+            <TouchableOpacity 
+              style={styles.checkboxContainer}
+              onPress={() => setAgreedToTerms(!agreedToTerms)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.checkbox, agreedToTerms && styles.checkboxChecked]}>
+                {agreedToTerms && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+              <View style={styles.termsTextContainer}>
+                <Text style={styles.termsText}>
+                  I agree to FlavorMind's{' '}
+                </Text>
+                <TouchableOpacity onPress={() => Alert.alert('Terms', 'Terms & Conditions - Feature coming soon')}>
+                  <Text style={styles.termsLink}>Terms & Conditions</Text>
+                </TouchableOpacity>
+                <Text style={styles.termsText}> and </Text>
+                <TouchableOpacity onPress={() => Alert.alert('Privacy', 'Privacy Policy - Feature coming soon')}>
+                  <Text style={styles.termsLink}>Privacy Policy</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
 
             {/* Register Button */}
             <Button
@@ -182,6 +194,34 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
             >
               Create Account
             </Button>
+
+            {/* Divider */}
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>OR SIGN UP WITH</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Social Sign Up Buttons */}
+            <View style={styles.socialButtons}>
+              <TouchableOpacity
+                style={styles.socialButton}
+                onPress={handleGoogleSignUp}
+                disabled={loading}
+              >
+                <Text style={styles.socialButtonText}>🔍 Google</Text>
+              </TouchableOpacity>
+
+              {Platform.OS === 'ios' && (
+                <TouchableOpacity
+                  style={styles.socialButton}
+                  onPress={handleAppleSignUp}
+                  disabled={loading}
+                >
+                  <Text style={styles.socialButtonText}>🍎 Apple</Text>
+                </TouchableOpacity>
+              )}
+            </View>
 
             {/* Sign In Link */}
             <View style={styles.footer}>
@@ -228,23 +268,86 @@ const styles = StyleSheet.create({
   form: {
     flex: 1,
   },
-  termsContainer: {
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: moderateScale(SPACING.xl),
+  },
+  checkbox: {
+    width: moderateScale(24),
+    height: moderateScale(24),
+    borderRadius: moderateScale(6),
+    borderWidth: 2,
+    borderColor: COLORS.border.main,
+    backgroundColor: COLORS.background.white,
+    marginRight: moderateScale(SPACING.sm),
+    marginTop: moderateScale(2),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: COLORS.primary.main,
+    borderColor: COLORS.primary.main,
+  },
+  checkmark: {
+    color: COLORS.text.white,
+    fontSize: scaleFontSize(16),
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+  },
+  termsTextContainer: {
+    flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    marginBottom: moderateScale(SPACING.xl),
   },
   termsText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.xs),
     color: COLORS.text.secondary,
+    lineHeight: scaleFontSize(TYPOGRAPHY.fontSize.xs) * 1.5,
   },
   termsLink: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.xs),
     color: COLORS.primary.main,
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+    textDecorationLine: 'underline',
   },
   registerButton: {
     marginBottom: moderateScale(SPACING.xl),
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: moderateScale(SPACING.xl),
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.border.light,
+  },
+  dividerText: {
+    marginHorizontal: moderateScale(SPACING.md),
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.xs),
+    color: COLORS.text.secondary,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+  },
+  socialButtons: {
+    flexDirection: 'row',
+    gap: moderateScale(SPACING.md),
+    marginBottom: moderateScale(SPACING.xl),
+  },
+  socialButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: COLORS.border.main,
+    borderRadius: BORDER_RADIUS.md,
+    paddingVertical: moderateScale(SPACING.md),
+    alignItems: 'center',
+    backgroundColor: COLORS.background.white,
+  },
+  socialButtonText: {
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+    color: COLORS.text.primary,
   },
   footer: {
     flexDirection: 'row',
