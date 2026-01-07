@@ -4,18 +4,26 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { COLORS } from '../constants/theme';
 import { isAuthenticated } from '../services/firebase/authService';
-import SimilarDishesScreen from '../features/memory/screens/SimilarDishesScreen';
-import RecipeCustomizationScreen from '../features/memory/screens/RecipeCustomizationScreen';
-
-
 
 // Navigators
 import AuthNavigator from './AuthNavigator';
 import BottomTabNavigator from './BottomTabNavigator';
 
-// Global Screens
+// Auth Screens
 import SplashScreen from '../features/auth/screens/SplashScreen';
+
+// Profile Screens
 import ProfileSettingsScreen from '../features/profile/screens/ProfileSettingsScreen';
+import ChangeEmailScreen from '../features/profile/screens/ChangeEmailScreen';
+import ChangePasswordScreen from '../features/profile/screens/ChangePasswordScreen';
+
+// Memory Cooking Flow Screens
+import SimilarDishesScreen from '../features/memory/screens/SimilarDishesScreen';
+import RecipeCustomizationScreen from '../features/memory/screens/RecipeCustomizationScreen';
+import CookingStepsScreen from '../features/memory/screens/CookingStepsScreen';
+import CookingTimerScreen from '../features/memory/screens/CookingTimerScreen';
+import DoneScreen from '../features/memory/screens/DoneScreen';
+import FeedbackScreen from '../features/memory/screens/FeedbackScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -59,22 +67,27 @@ const RootNavigator: React.FC = () => {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-
         {isAuth ? (
           <>
             {/* Main Tab App */}
             <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
 
-            {/* Global Overlay Screens */}
-            <Stack.Screen
-              name="ProfileSettings"
-              component={ProfileSettingsScreen}
-            />
+            {/* Profile Settings Screens */}
+            <Stack.Screen name="ProfileSettings" component={ProfileSettingsScreen} />
+            <Stack.Screen name="ChangeEmail" component={ChangeEmailScreen} />
+            <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+
+            {/* Memory-Based Cooking Flow */}
+            <Stack.Screen name="SimilarDishes" component={SimilarDishesScreen} />
+            <Stack.Screen name="RecipeCustomization" component={RecipeCustomizationScreen} />
+            <Stack.Screen name="CookingSteps" component={CookingStepsScreen} />
+            <Stack.Screen name="CookingTimer" component={CookingTimerScreen} />
+            <Stack.Screen name="Done" component={DoneScreen} />
+            <Stack.Screen name="Feedback" component={FeedbackScreen} />
           </>
         ) : (
           <Stack.Screen name="Auth" component={AuthNavigator} />
         )}
-
       </Stack.Navigator>
     </NavigationContainer>
   );
