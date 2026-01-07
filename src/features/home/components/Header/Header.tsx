@@ -1,4 +1,4 @@
-// src/features/home/components/Header/Header.tsx
+// src/features/home/components/Header/Header.tsx - PASTEL ORANGE
 import React from 'react';
 import {
   View,
@@ -99,18 +99,18 @@ const Header: React.FC<HeaderProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.background.header,
+    backgroundColor: COLORS.background.header, // Pastel Orange
     paddingTop: Platform.OS === 'ios' ? 0 : (StatusBar.currentHeight || 0) + moderateScale(8),
     paddingBottom: moderateScale(SPACING.md),
     paddingHorizontal: moderateScale(SPACING.base),
     borderBottomLeftRadius: moderateScale(24),
     borderBottomRightRadius: moderateScale(24),
-    shadowColor: '#000',
+    shadowColor: COLORS.pastelOrange.dark,
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 4,
   },
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.lg),
     fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.pastelGreen.dark,
+    color: COLORS.pastelOrange.dark,
     letterSpacing: 0.5,
   },
   tagline: {
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   locationIcon: {
     width: moderateScale(14),
     height: moderateScale(14),
-    tintColor: COLORS.pastelGreen.dark,
+    tintColor: COLORS.pastelOrange.dark,
     marginRight: moderateScale(4),
   },
   locationText: {
@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
     width: moderateScale(40),
     height: moderateScale(40),
     borderRadius: moderateScale(20),
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
   icon: {
     width: moderateScale(22),
     height: moderateScale(22),
-    tintColor: COLORS.pastelGreen.dark,
+    tintColor: COLORS.pastelOrange.dark,
   },
   badge: {
     position: 'absolute',
@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
     borderRadius: moderateScale(20),
     overflow: 'hidden',
     borderWidth: 2.5,
-    borderColor: COLORS.pastelGreen.dark,
+    borderColor: COLORS.pastelOrange.dark,
     backgroundColor: COLORS.background.white,
   },
   profileImage: {

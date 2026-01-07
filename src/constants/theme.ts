@@ -1,55 +1,70 @@
-// src/constants/theme.ts - COMPLETE FIXED VERSION
+// src/constants/theme.ts - PASTEL ORANGE, GREEN & YELLOW THEME
 
 export const COLORS = {
   primary: {
-    main: '#FF6B6B',
-    light: '#FF8E8E',
-    dark: '#E55555',
+    main: '#FFB84D', // Pastel Orange
+    light: '#FFCC80',
+    dark: '#FFA726',
   },
   secondary: {
-    main: '#4ECDC4',
-    light: '#7ED9D2',
-    dark: '#3BA39C',
-    gradient: ['#4ECDC4', '#44A08D'],
+    main: '#81C784', // Pastel Green
+    light: '#A5D6A7',
+    dark: '#66BB6A',
+    gradient: ['#81C784', '#66BB6A'],
   },
-  // FIXED: Added missing pastelGreen
+  accent: {
+    main: '#FFF59D', // Pastel Yellow
+    light: '#FFFDE7',
+    dark: '#FFF176',
+  },
   pastelGreen: {
     main: '#81C784',
     light: '#A5D6A7',
     dark: '#66BB6A',
   },
+  pastelOrange: {
+    main: '#FFB84D',
+    light: '#FFCC80',
+    dark: '#FFA726',
+  },
+  pastelYellow: {
+    main: '#FFF59D',
+    light: '#FFFDE7',
+    dark: '#FFF176',
+  },
   background: {
     primary: '#FFFFFF',
-    secondary: '#F8F9FA',
-    tertiary: '#E9ECEF',
+    secondary: '#FFF8F0', // Very light warm background
+    tertiary: '#FFE0B2', // Light orange tint
     main: '#FFFFFF',
     card: '#FFFFFF',
     white: '#FFFFFF',
-    // FIXED: Added missing header background
-    header: '#E8F5E9', // Light green for header
+    header: '#FFE0B2', // Pastel Orange for header
+    splash: '#FFB84D', // Pastel Orange for splash
   },
   text: {
-    primary: '#212529',
-    secondary: '#6C757D',
-    tertiary: '#ADB5BD',
+    primary: '#4A4A4A',
+    secondary: '#757575',
+    tertiary: '#9E9E9E',
     white: '#FFFFFF',
-    disabled: '#ADB5BD',
+    disabled: '#BDBDBD',
+    onOrange: '#FFFFFF',
   },
   status: {
-    success: '#4CAF50',
-    warning: '#FFC107',
-    error: '#F44336',
-    info: '#2196F3',
+    success: '#81C784', // Pastel Green
+    warning: '#FFF59D', // Pastel Yellow
+    error: '#EF9A9A', // Pastel Red
+    info: '#90CAF9', // Pastel Blue
   },
   badge: {
-    match: 'rgba(76, 175, 80, 0.9)',
-    highHarvest: 'rgba(76, 175, 80, 0.9)',
-    lowPrice: 'rgba(33, 150, 243, 0.9)',
+    match: 'rgba(129, 199, 132, 0.9)', // Pastel Green
+    highHarvest: 'rgba(129, 199, 132, 0.9)',
+    lowPrice: 'rgba(144, 202, 249, 0.9)',
   },
   border: {
-    light: '#DEE2E6',
-    main: '#CED4DA',
-    dark: '#ADB5BD',
+    light: '#FFE0B2',
+    main: '#FFCC80',
+    dark: '#FFB84D',
   },
 };
 
@@ -101,7 +116,7 @@ export const BORDER_RADIUS = {
 
 export const SHADOWS = {
   small: {
-    shadowColor: '#000',
+    shadowColor: '#FFB84D',
     shadowOffset: {
       width: 0,
       height: 2,
@@ -111,7 +126,7 @@ export const SHADOWS = {
     elevation: 2,
   },
   medium: {
-    shadowColor: '#000',
+    shadowColor: '#FFB84D',
     shadowOffset: {
       width: 0,
       height: 4,
@@ -121,7 +136,7 @@ export const SHADOWS = {
     elevation: 4,
   },
   large: {
-    shadowColor: '#000',
+    shadowColor: '#FFB84D',
     shadowOffset: {
       width: 0,
       height: 8,

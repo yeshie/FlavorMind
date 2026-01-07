@@ -1,4 +1,4 @@
-// src/features/home/screens/HomeScreen.tsx
+// src/features/home/screens/HomeScreen.tsx - WITH PROFILE NAVIGATION
 import React, { useState } from 'react';
 import {
   ScrollView,
@@ -20,7 +20,11 @@ import RecommendationFeed from '../components/RecommendationFeed/RecommendationF
 // Types
 import { SeasonalItem, FeatureItem, RecipeRecommendation } from '../types/home.types';
 
-const HomeScreen: React.FC = () => {
+interface HomeScreenProps {
+  navigation: any;
+}
+
+const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
 
   // Mock Data - Replace with API calls
@@ -137,7 +141,8 @@ const HomeScreen: React.FC = () => {
   };
 
   const handleProfilePress = () => {
-    Alert.alert('Profile', 'Navigate to profile screen');
+    // Navigate to Profile Settings
+    navigation.navigate('ProfileSettings');
   };
 
   const handleMemoryGenerate = (query: string) => {
@@ -176,7 +181,7 @@ const HomeScreen: React.FC = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor={COLORS.primary.main}
+            tintColor={COLORS.pastelOrange.main}
           />
         }
       >

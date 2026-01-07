@@ -1,13 +1,21 @@
-// src/navigation/RootNavigator.tsx
 import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { COLORS } from '../constants/theme';
 import { isAuthenticated } from '../services/firebase/authService';
-import SplashScreen from '../features/auth/screens/SplashScreen';
+import SimilarDishesScreen from '../features/memory/screens/SimilarDishesScreen';
+import RecipeCustomizationScreen from '../features/memory/screens/RecipeCustomizationScreen';
+
+
+
+// Navigators
 import AuthNavigator from './AuthNavigator';
 import BottomTabNavigator from './BottomTabNavigator';
+
+// Global Screens
+import SplashScreen from '../features/auth/screens/SplashScreen';
+import ProfileSettingsScreen from '../features/profile/screens/ProfileSettingsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -49,17 +57,26 @@ const RootNavigator: React.FC = () => {
   }
 
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      {isAuth ? (
-        <Stack.Screen name="Main" component={BottomTabNavigator} />
-      ) : (
-        <Stack.Screen name="Auth" component={AuthNavigator} />
-      )}
-    </Stack.Navigator>
+    <NavigationContainer>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+
+        {isAuth ? (
+          <>
+            {/* Main Tab App */}
+            <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
+
+            {/* Global Overlay Screens */}
+            <Stack.Screen
+              name="ProfileSettings"
+              component={ProfileSettingsScreen}
+            />
+          </>
+        ) : (
+          <Stack.Screen name="Auth" component={AuthNavigator} />
+        )}
+
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 };
 

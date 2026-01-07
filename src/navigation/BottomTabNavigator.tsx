@@ -1,19 +1,17 @@
-// src/navigation/BottomTabNavigator.tsx
+// src/navigation/BottomTabNavigator.tsx - PASTEL ORANGE
 import React from 'react';
 import { Image, StyleSheet, View, Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { COLORS, TYPOGRAPHY, SPACING, LAYOUT } from '../constants/theme';
+import { COLORS, TYPOGRAPHY, SPACING } from '../constants/theme';
 import { moderateScale, scaleFontSize } from '../common/utils/responsive';
+import MemoryScreen from '../features/memory/screens/MemoryScreen';
+
 
 // Screens
 import HomeScreen from '../features/home/screens/HomeScreen';
+import ProfileSettingsScreen from '../features/profile/screens/ProfileSettingsScreen';
 
-// Placeholder screens - Replace with actual screens later
-const MemoryScreen = () => (
-  <View style={styles.placeholder}>
-    <Text style={styles.placeholderText}>Memory Recall Screen</Text>
-  </View>
-);
+
 
 const CreateScreen = () => (
   <View style={styles.placeholder}>
@@ -40,15 +38,22 @@ const BottomTabNavigator: React.FC = () => {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: COLORS.primary.main,
+        tabBarActiveTintColor: COLORS.pastelOrange.dark,
         tabBarInactiveTintColor: COLORS.text.secondary,
         tabBarStyle: {
           height: moderateScale(70),
           paddingBottom: moderateScale(SPACING.sm),
           paddingTop: moderateScale(SPACING.sm),
-          borderTopWidth: 1,
-          borderTopColor: COLORS.border.light,
-          backgroundColor: COLORS.background.white,
+          borderTopWidth: 0,
+          backgroundColor: COLORS.background.header, // Pastel Orange
+          elevation: 8,
+          shadowColor: COLORS.pastelOrange.dark,
+          shadowOffset: {
+            width: 0,
+            height: -2,
+          },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
         },
         tabBarLabelStyle: {
           fontSize: scaleFontSize(TYPOGRAPHY.fontSize.xs),
@@ -173,11 +178,11 @@ const tabStyles = StyleSheet.create({
     width: moderateScale(56),
     height: moderateScale(56),
     borderRadius: moderateScale(28),
-    backgroundColor: COLORS.primary.main,
+    backgroundColor: COLORS.pastelOrange.dark,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: moderateScale(-28),
-    shadowColor: COLORS.primary.main,
+    shadowColor: COLORS.pastelOrange.dark,
     shadowOffset: {
       width: 0,
       height: 4,
