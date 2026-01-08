@@ -26,6 +26,11 @@ import CookingTimerScreen from '../features/memory/screens/CookingTimerScreen';
 import DoneScreen from '../features/memory/screens/DoneScreen';
 import FeedbackScreen from '../features/memory/screens/FeedbackScreen';
 
+// Adaptation Screens
+import LocalAdaptationScreen from '../features/adaptation/screens/LocalAdaptationScreen';
+import SeasonalFoodScreen from '../features/adaptation/screens/SeasonalFoodScreen';
+import AddRecipeScreen from '../features/adaptation/screens/AddRecipeScreen';
+
 type RootStackParamList = {
   MainTabs: undefined;
   ProfileSettings: undefined;
@@ -37,6 +42,9 @@ type RootStackParamList = {
   CookingTimer: { [key: string]: any };
   Done: { [key: string]: any };
   Feedback: { [key: string]: any };
+  LocalAdaptation: undefined;
+  SeasonalFood: { food: any };
+  AddRecipe: undefined;
   Auth: undefined;
 };
 
@@ -98,8 +106,8 @@ const RootNavigator: React.FC = () => {
             <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
 
             {/* Memory-Based Cooking Flow */}
-            <Stack.Screen 
-              name="SimilarDishesScreen" 
+            <Stack.Screen
+              name="SimilarDishesScreen"
               component={SimilarDishesScreen as React.ComponentType<any>}
             />
             <Stack.Screen name="RecipeCustomization" component={RecipeCustomizationScreen as React.ComponentType<any>} />
@@ -107,6 +115,11 @@ const RootNavigator: React.FC = () => {
             <Stack.Screen name="CookingTimer" component={CookingTimerScreen as React.ComponentType<any>} />
             <Stack.Screen name="Done" component={DoneScreen as React.ComponentType<any>} />
             <Stack.Screen name="Feedback" component={FeedbackScreen as React.ComponentType<any>} />
+
+            {/* Adaptation Screens */}
+            <Stack.Screen name="LocalAdaptation" component={LocalAdaptationScreen} />
+            <Stack.Screen name="SeasonalFood" component={SeasonalFoodScreen} />
+            <Stack.Screen name="AddRecipe" component={AddRecipeScreen} />
           </>
         ) : (
           <Stack.Screen name="Auth" component={AuthNavigator} />

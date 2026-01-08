@@ -69,9 +69,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const features: FeatureItem[] = [
     {
       id: '1',
-      title: 'Local Adaptor',
+      title: 'Local Adaptation',
       icon: require('../../../assets/icons/swap.png'),
-      route: 'LocalAdaptor',
+      route: 'LocalAdaptation',
     },
     {
       id: '2',
@@ -153,11 +153,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   };
 
   const handleSeasonalItemPress = (item: SeasonalItem) => {
-    Alert.alert(item.name, `Show recipes using ${item.name}`);
+    navigation.navigate('SeasonalFood', { food: item });
   };
 
   const handleFeaturePress = (feature: FeatureItem) => {
-    Alert.alert(feature.title, `Navigate to ${feature.route}`);
+    if (feature.route === 'LocalAdaptation') {
+      navigation.navigate('LocalAdaptation');
+    } else {
+      Alert.alert(feature.title, `Navigate to ${feature.route}`);
+    }
   };
 
   const handleRecipePress = (recipe: RecipeRecommendation) => {
