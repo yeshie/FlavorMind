@@ -1,4 +1,3 @@
-// src/features/home/screens/HomeScreen.tsx - WITH PROFILE NAVIGATION
 import React, { useState } from 'react';
 import {
   ScrollView,

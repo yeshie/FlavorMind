@@ -9,7 +9,7 @@ export type RootStackParamList = {
   ChangePassword: undefined;
 
   // Memory-Based Cooking Flow
-  SimilarDishes: {
+  SimilarDishesScreen: {
     memoryQuery: string;
   };
 

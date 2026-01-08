@@ -37,6 +37,7 @@ const MemoryScreen: React.FC<MemoryScreenProps> = ({ navigation }) => {
     {
       id: '1',
       dishName: 'Grandmother\'s Spicy Coconut Fish Curry',
+      // cspell:disable-next-line
       description: 'Spicy fish curry with goraka and coconut milk',
       date: '2 days ago',
       image: 'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=400',
@@ -77,7 +78,7 @@ const MemoryScreen: React.FC<MemoryScreenProps> = ({ navigation }) => {
     // Navigate directly to recipe customization
     navigation.navigate('RecipeCustomization', {
       dishName: memory.dishName,
-      memoryId: memory.id,
+      dishId: memory.id,
     });
   };
 
@@ -119,6 +120,7 @@ const MemoryScreen: React.FC<MemoryScreenProps> = ({ navigation }) => {
             <View style={[styles.inputContainer, isFocused && styles.inputContainerFocused]}>
               <TextInput
                 style={styles.input}
+                // cspell:disable-next-line
                 placeholder="e.g., My grandmother's spicy coconut fish curry with goraka..."
                 placeholderTextColor={COLORS.text.tertiary}
                 value={memoryQuery}
