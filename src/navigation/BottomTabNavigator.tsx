@@ -10,6 +10,7 @@ import MemoryScreen from '../features/memory/screens/MemoryScreen';
 // Screens
 import HomeScreen from '../features/home/screens/HomeScreen';
 import ProfileSettingsScreen from '../features/profile/screens/ProfileSettingsScreen';
+import DigitalCookbookScreen from '../features/cookbook/screens/DigitalCookbookScreen';
 
 
 
@@ -25,11 +26,7 @@ const SearchScreen = () => (
   </View>
 );
 
-const LibraryScreen = () => (
-  <View style={styles.placeholder}>
-    <Text style={styles.placeholderText}>Saved Recipe Library Screen</Text>
-  </View>
-);
+const LibraryScreen = DigitalCookbookScreen;
 
 const Tab = createBottomTabNavigator();
 

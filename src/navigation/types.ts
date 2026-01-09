@@ -47,7 +47,7 @@ export type RootStackParamList = {
     recipeId: string;
   };
   CookbookReference: {
-    cookbookId: string;
+    cookbook: any;
   };
   CookbookIntroduction: {
     cookbookId: string;
@@ -58,6 +58,27 @@ export type RootStackParamList = {
   };
   CookbookThankYou: {
     cookbook: any;
+  };
+
+  // Cookbook Screens
+  DigitalCookbook: undefined;
+  PublishedRecipePage: {
+    recipe: any;
+  };
+  DraftRecipePage: {
+    recipe: any;
+  };
+  SelectRecipesPage: undefined;
+  CookbookCoverSetup: {
+    selectedRecipes: any[];
+  };
+  CookbookCreationSummary: {
+    selectedRecipes: any[];
+    coverData: any;
+  };
+  AddRecipe: {
+    recipe?: any;
+    isEdit?: boolean;
   };
 
   // Auth

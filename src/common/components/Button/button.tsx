@@ -27,7 +27,7 @@ export interface ButtonProps extends TouchableOpacityProps {
   icon?: ImageSourcePropType;
   iconPosition?: 'left' | 'right';
   onPress?: () => void;
-  style?: ViewStyle;
+  style?: ViewStyle | ViewStyle[];
   textStyle?: TextStyle;
 }
 
@@ -53,7 +53,7 @@ const Button: React.FC<ButtonProps> = ({
     styles[`button_${size}` as keyof typeof styles] as ViewStyle,
     fullWidth ? styles.fullWidth : undefined,
     isDisabled ? styles.disabled : undefined,
-    style,
+    ...(Array.isArray(style) ? style : [style]),
   ];
 
   const textStyles: (TextStyle | false | undefined)[] = [

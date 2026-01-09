@@ -43,6 +43,14 @@ import CookbookIntroductionScreen from '../features/community/screens/CookbookIn
 import CookbookRecipePageScreen from '../features/community/screens/CookbookRecipePageScreen';
 import CookbookThankYouScreen from '../features/community/screens/CookbookThankYouScreen';
 
+// Cookbook Screens
+import DigitalCookbookScreen from '../features/cookbook/screens/DigitalCookbookScreen';
+import PublishedRecipePageScreen from '../features/cookbook/screens/PublishedRecipePageScreen';
+import DraftRecipePageScreen from '../features/cookbook/screens/DraftRecipePageScreen';
+import SelectRecipesPageScreen from '../features/cookbook/screens/SelectRecipesPageScreen';
+import CookbookCoverSetupScreen from '../features/cookbook/screens/CookbookCoverSetupScreen';
+import CookbookCreationSummaryScreen from '../features/cookbook/screens/CookbookCreationSummaryScreen';
+
 type RootStackParamList = {
   MainTabs: undefined;
   ProfileSettings: undefined;
@@ -61,7 +69,7 @@ type RootStackParamList = {
   ScaledRecipeResults: { scalingQuery: string };
   DigitalCommittee: undefined;
   RecipeDescription: { recipeId: string };
-  CookbookReference: { cookbookId: string };
+  CookbookReference: { cookbook: any };
   CookbookIntroduction: { cookbookId: string };
   CookbookRecipePage: {
     cookbook: any;
@@ -69,6 +77,21 @@ type RootStackParamList = {
   };
   CookbookThankYou: {
     cookbook: any;
+  };
+  DigitalCookbook: undefined;
+  PublishedRecipePage: {
+    recipe: any;
+  };
+  DraftRecipePage: {
+    recipe: any;
+  };
+  SelectRecipesPage: undefined;
+  CookbookCoverSetup: {
+    selectedRecipes: any[];
+  };
+  CookbookCreationSummary: {
+    selectedRecipes: any[];
+    coverData: any;
   };
   Auth: undefined;
 };
@@ -157,6 +180,14 @@ const RootNavigator: React.FC = () => {
             <Stack.Screen name="CookbookIntroduction" component={CookbookIntroductionScreen as React.ComponentType<any>} />
             <Stack.Screen name="CookbookRecipePage" component={CookbookRecipePageScreen as React.ComponentType<any>} />
             <Stack.Screen name="CookbookThankYou" component={CookbookThankYouScreen as React.ComponentType<any>} />
+
+            {/* Cookbook Screens */}
+            <Stack.Screen name="DigitalCookbook" component={DigitalCookbookScreen as React.ComponentType<any>} />
+            <Stack.Screen name="PublishedRecipePage" component={PublishedRecipePageScreen as React.ComponentType<any>} />
+            <Stack.Screen name="DraftRecipePage" component={DraftRecipePageScreen as React.ComponentType<any>} />
+            <Stack.Screen name="SelectRecipesPage" component={SelectRecipesPageScreen as React.ComponentType<any>} />
+            <Stack.Screen name="CookbookCoverSetup" component={CookbookCoverSetupScreen as React.ComponentType<any>} />
+            <Stack.Screen name="CookbookCreationSummary" component={CookbookCreationSummaryScreen as React.ComponentType<any>} />
           </>
         ) : (
           <Stack.Screen name="Auth" component={AuthNavigator} />

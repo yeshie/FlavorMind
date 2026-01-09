@@ -162,6 +162,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       navigation.navigate('LocalAdaptation');
     } else if (feature.route === 'SmartScaling') {
       navigation.navigate('SmartScaling');
+    } else if (feature.route === 'Cookbook') {
+      navigation.navigate('DigitalCookbook');
     } else if (feature.route === 'DigitalCommittee') {
       navigation.navigate('DigitalCommittee');
     } else {

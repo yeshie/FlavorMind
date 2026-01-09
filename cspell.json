@@ -1,0 +1,19 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "words": [
+    "Sambol",
+    "Dhal",
+    "Kottu",
+    "Roti",
+    "Parippu",
+    "Watalappan"
+  ],
+  "ignorePaths": [
+    "node_modules/**",
+    ".git/**",
+    "dist/**",
+    "build/**",
+    "*.log"
+  ]
+}
