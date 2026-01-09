@@ -31,6 +31,18 @@ import LocalAdaptationScreen from '../features/adaptation/screens/LocalAdaptatio
 import SeasonalFoodScreen from '../features/adaptation/screens/SeasonalFoodScreen';
 import AddRecipeScreen from '../features/adaptation/screens/AddRecipeScreen';
 
+// Scaling Screens
+import SmartScalingScreen from '../features/scaling/screens/SmartScalingScreen';
+import ScaledRecipeResultsScreen from '../features/scaling/screens/ScaledRecipeResultsScreen';
+
+// Community Screens
+import DigitalCommitteeScreen from '../features/community/screens/DigitalCommitteeScreen';
+import RecipeDescriptionScreen from '../features/community/screens/RecipeDescriptionScreen';
+import CookbookReferenceScreen from '../features/community/screens/CookbookReferenceScreen';
+import CookbookIntroductionScreen from '../features/community/screens/CookbookIntroductionScreen';
+import CookbookRecipePageScreen from '../features/community/screens/CookbookRecipePageScreen';
+import CookbookThankYouScreen from '../features/community/screens/CookbookThankYouScreen';
+
 type RootStackParamList = {
   MainTabs: undefined;
   ProfileSettings: undefined;
@@ -45,6 +57,19 @@ type RootStackParamList = {
   LocalAdaptation: undefined;
   SeasonalFood: { food: any };
   AddRecipe: undefined;
+  SmartScaling: undefined;
+  ScaledRecipeResults: { scalingQuery: string };
+  DigitalCommittee: undefined;
+  RecipeDescription: { recipeId: string };
+  CookbookReference: { cookbookId: string };
+  CookbookIntroduction: { cookbookId: string };
+  CookbookRecipePage: {
+    cookbook: any;
+    recipeIndex: number;
+  };
+  CookbookThankYou: {
+    cookbook: any;
+  };
   Auth: undefined;
 };
 
@@ -120,6 +145,18 @@ const RootNavigator: React.FC = () => {
             <Stack.Screen name="LocalAdaptation" component={LocalAdaptationScreen} />
             <Stack.Screen name="SeasonalFood" component={SeasonalFoodScreen} />
             <Stack.Screen name="AddRecipe" component={AddRecipeScreen} />
+
+            {/* Scaling Screens */}
+            <Stack.Screen name="SmartScaling" component={SmartScalingScreen} />
+            <Stack.Screen name="ScaledRecipeResults" component={ScaledRecipeResultsScreen} />
+
+            {/* Community Screens */}
+            <Stack.Screen name="DigitalCommittee" component={DigitalCommitteeScreen} />
+            <Stack.Screen name="RecipeDescription" component={RecipeDescriptionScreen as React.ComponentType<any>} />
+            <Stack.Screen name="CookbookReference" component={CookbookReferenceScreen as React.ComponentType<any>} />
+            <Stack.Screen name="CookbookIntroduction" component={CookbookIntroductionScreen as React.ComponentType<any>} />
+            <Stack.Screen name="CookbookRecipePage" component={CookbookRecipePageScreen as React.ComponentType<any>} />
+            <Stack.Screen name="CookbookThankYou" component={CookbookThankYouScreen as React.ComponentType<any>} />
           </>
         ) : (
           <Stack.Screen name="Auth" component={AuthNavigator} />
@@ -138,4 +175,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default RootNavigator;
+export default RootNavigator; 

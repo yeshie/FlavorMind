@@ -2,7 +2,7 @@
 export type RootStackParamList = {
   // Main App
   MainTabs: undefined;
-  
+
   // Profile Settings
   ProfileSettings: undefined;
   ChangeEmail: undefined;
@@ -39,6 +39,25 @@ export type RootStackParamList = {
   Feedback: {
     dishName: string;
     servingSize: number;
+  };
+
+  // Community Screens
+  DigitalCommittee: undefined;
+  RecipeDescription: {
+    recipeId: string;
+  };
+  CookbookReference: {
+    cookbookId: string;
+  };
+  CookbookIntroduction: {
+    cookbookId: string;
+  };
+  CookbookRecipePage: {
+    cookbook: any;
+    recipeIndex: number;
+  };
+  CookbookThankYou: {
+    cookbook: any;
   };
 
   // Auth

@@ -11,6 +11,7 @@ export interface SeasonalItem {
 export interface FeatureItem {
   id: string;
   title: string;
+  subtitle?: string;
   icon: any; // ImageSourcePropType
   route: string;
 }

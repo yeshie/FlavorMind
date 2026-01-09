@@ -4,21 +4,22 @@
     "slug": "FlavorMind",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./src/assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/icon.png",
+      "image": "./src/assets/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#E8F5E9"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.flavormind.app"
+      "bundleIdentifier": "com.flavormind.app",
+      "icon": "./src/assets/icon.png"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
+        "foregroundImage": "./src/assets/icon.png",
         "backgroundColor": "#E8F5E9"
       },
       "package": "com.flavormind.app",
@@ -26,7 +27,7 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/icon.png",
+      "favicon": "./src/assets/icon.png",
       "backgroundColor": "#E8F5E9"
     }
   }

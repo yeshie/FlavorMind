@@ -87,9 +87,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     },
     {
       id: '4',
-      title: 'Public Feed',
+      title: 'Digital Committee',
+      subtitle: 'Community recipes & curated cookbooks',
       icon: require('../../../assets/icons/community.png'),
-      route: 'Community',
+      route: 'DigitalCommittee',
     },
   ];
 
@@ -159,6 +160,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const handleFeaturePress = (feature: FeatureItem) => {
     if (feature.route === 'LocalAdaptation') {
       navigation.navigate('LocalAdaptation');
+    } else if (feature.route === 'SmartScaling') {
+      navigation.navigate('SmartScaling');
+    } else if (feature.route === 'DigitalCommittee') {
+      navigation.navigate('DigitalCommittee');
     } else {
       Alert.alert(feature.title, `Navigate to ${feature.route}`);
     }
