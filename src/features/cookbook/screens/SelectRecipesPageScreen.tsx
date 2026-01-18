@@ -143,7 +143,7 @@ const SelectRecipesPageScreen: React.FC<SelectRecipesPageScreenProps> = ({ navig
   const canProceed = selectedCount >= 10;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity

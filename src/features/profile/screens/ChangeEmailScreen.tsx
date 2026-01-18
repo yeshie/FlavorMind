@@ -64,7 +64,7 @@ const ChangeEmailScreen: React.FC<ChangeEmailScreenProps> = ({ navigation }) => 
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}

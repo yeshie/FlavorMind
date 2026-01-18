@@ -84,7 +84,7 @@ const CookbookThankYouScreen: React.FC<CookbookThankYouScreenProps> = ({
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <ScrollView 
         style={styles.scrollView} 
         showsVerticalScrollIndicator={false}

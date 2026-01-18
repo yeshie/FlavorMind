@@ -89,7 +89,7 @@ const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ navigation, route }) =>
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}

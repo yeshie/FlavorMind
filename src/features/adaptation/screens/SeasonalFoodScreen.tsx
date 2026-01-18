@@ -61,7 +61,7 @@ const SeasonalFoodScreen: React.FC<SeasonalFoodScreenProps> = ({ navigation, rou
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -274,3 +274,4 @@ const styles = StyleSheet.create({
 });
 
 export default SeasonalFoodScreen;
+

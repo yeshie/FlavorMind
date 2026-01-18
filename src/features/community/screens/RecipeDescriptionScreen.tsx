@@ -52,7 +52,7 @@ const RecipeDescriptionScreen: React.FC<RecipeDescriptionScreenProps> = ({
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity

@@ -119,7 +119,7 @@ const CookingTimerScreen: React.FC<CookingTimerScreenProps> = ({ navigation, rou
   const progress = 1 - ((minutes * 60 + seconds) / (totalCookTime * 60));
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <LinearGradient
         colors={['#E9A23B', '#F5B95F', '#FFC97A']}
         start={{ x: 0, y: 0 }}

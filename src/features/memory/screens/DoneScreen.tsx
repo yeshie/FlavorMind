@@ -41,7 +41,7 @@ const DoneScreen: React.FC<DoneScreenProps> = ({ navigation, route }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <LinearGradient
         colors={['#81C784', '#A5D6A7', '#C8E6C9']}
         start={{ x: 0, y: 0 }}
