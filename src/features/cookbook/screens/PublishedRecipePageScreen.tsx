@@ -93,7 +93,7 @@ const PublishedRecipePageScreen: React.FC<PublishedRecipePageScreenProps> = ({
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={styles.pageIntro}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
@@ -101,7 +101,6 @@ const PublishedRecipePageScreen: React.FC<PublishedRecipePageScreenProps> = ({
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Published Recipe</Text>
-        <View style={styles.placeholder} />
       </View>
 
       <ScrollView
@@ -193,19 +192,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background.secondary,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: COLORS.background.header,
+  pageIntro: {
     paddingHorizontal: moderateScale(SPACING.base),
-    paddingVertical: moderateScale(SPACING.md),
-    borderBottomLeftRadius: moderateScale(24),
-    borderBottomRightRadius: moderateScale(24),
-    ...SHADOWS.small,
+    paddingTop: moderateScale(SPACING.lg),
+    paddingBottom: moderateScale(SPACING.sm),
   },
   backButton: {
     padding: moderateScale(SPACING.xs),
+    marginBottom: moderateScale(SPACING.sm),
   },
   backButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
@@ -213,12 +207,9 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
   },
   headerTitle: {
-    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.lg),
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
     fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.text.primary,
-  },
-  placeholder: {
-    width: moderateScale(40),
+    color: COLORS.text.secondary,
   },
   scrollView: {
     flex: 1,

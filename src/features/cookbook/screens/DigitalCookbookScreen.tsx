@@ -166,17 +166,14 @@ const DigitalCookbookScreen: React.FC<DigitalCookbookScreenProps> = ({ navigatio
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={styles.pageIntro}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Digital Cookbook</Text>
-          <Text style={styles.headerSubtitle}>Your culinary collection</Text>
-        </View>
+        <Text style={styles.headerTitle}>Digital Cookbook</Text>
       </View>
 
       <ScrollView
@@ -393,28 +390,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background.secondary,
   },
-  header: {
-    backgroundColor: COLORS.background.header,
+  pageIntro: {
     paddingHorizontal: moderateScale(SPACING.base),
-    paddingVertical: moderateScale(SPACING.md),
-    borderBottomLeftRadius: moderateScale(24),
-    borderBottomRightRadius: moderateScale(24),
-    ...SHADOWS.small,
+    paddingTop: moderateScale(SPACING.lg),
+    paddingBottom: moderateScale(SPACING.sm),
   },
   backButton: {
-    marginBottom: moderateScale(SPACING.sm),
+    marginBottom: moderateScale(SPACING.md),
   },
   backButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
     color: COLORS.pastelOrange.dark,
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
   },
-  headerContent: {},
   headerTitle: {
-    fontSize: scaleFontSize(TYPOGRAPHY.fontSize['2xl']),
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
     fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.text.primary,
-    marginBottom: moderateScale(4),
+    color: COLORS.text.secondary,
+    marginBottom: moderateScale(2),
   },
   headerSubtitle: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.sm),

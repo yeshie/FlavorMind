@@ -95,11 +95,8 @@ const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ navigation, route }) =>
         style={styles.keyboardView}
       >
         {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Share Your Experience</Text>
-            <Text style={styles.dishName}>{dishName}</Text>
-          </View>
+        <View style={styles.pageIntro}>
+          <Text style={styles.headerTitle}>Share Your Experience</Text>
         </View>
 
         <ScrollView
@@ -233,22 +230,17 @@ const styles = StyleSheet.create({
   keyboardView: {
     flex: 1,
   },
-  header: {
-    backgroundColor: COLORS.background.header,
-    paddingHorizontal: moderateScale(SPACING.base),
-    paddingVertical: moderateScale(SPACING.lg),
-    borderBottomLeftRadius: moderateScale(24),
-    borderBottomRightRadius: moderateScale(24),
-    ...SHADOWS.small,
-  },
-  headerContent: {
+  pageIntro: {
     alignItems: 'center',
+    paddingHorizontal: moderateScale(SPACING.base),
+    paddingTop: moderateScale(SPACING.lg),
+    paddingBottom: moderateScale(SPACING.sm),
   },
   headerTitle: {
-    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.xl),
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
     fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.text.primary,
-    marginBottom: moderateScale(SPACING.xs),
+    color: COLORS.text.secondary,
+    marginBottom: moderateScale(2),
   },
   dishName: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),

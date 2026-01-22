@@ -85,9 +85,8 @@ const MemoryScreen: React.FC<MemoryScreenProps> = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={styles.pageIntro}>
         <Text style={styles.headerTitle}>Memory-Based Cooking</Text>
-        <Text style={styles.headerSubtitle}>Recreate your favorite food memories</Text>
       </View>
 
       <ScrollView
@@ -206,19 +205,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background.secondary,
   },
-  header: {
+  pageIntro: {
     paddingHorizontal: moderateScale(SPACING.base),
-    paddingVertical: moderateScale(SPACING.lg),
-    backgroundColor: COLORS.background.header,
-    borderBottomLeftRadius: moderateScale(24),
-    borderBottomRightRadius: moderateScale(24),
-    ...SHADOWS.small,
+    paddingTop: moderateScale(SPACING.lg),
+    paddingBottom: moderateScale(SPACING.sm),
   },
   headerTitle: {
-    fontSize: scaleFontSize(TYPOGRAPHY.fontSize['2xl']),
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
     fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.text.primary,
-    marginBottom: moderateScale(4),
+    color: COLORS.text.secondary,
+    marginBottom: moderateScale(2),
   },
   headerSubtitle: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.sm),

@@ -86,7 +86,7 @@ const AddRecipeScreen: React.FC<AddRecipeScreenProps> = ({ navigation }) => {
         style={styles.keyboardView}
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View style={styles.pageIntro}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}
@@ -226,16 +226,13 @@ const styles = StyleSheet.create({
   keyboardView: {
     flex: 1,
   },
-  header: {
-    backgroundColor: COLORS.background.header,
+  pageIntro: {
     paddingHorizontal: moderateScale(SPACING.base),
-    paddingVertical: moderateScale(SPACING.md),
-    borderBottomLeftRadius: moderateScale(24),
-    borderBottomRightRadius: moderateScale(24),
-    ...SHADOWS.small,
+    paddingTop: moderateScale(SPACING.lg),
+    paddingBottom: moderateScale(SPACING.sm),
   },
   backButton: {
-    marginBottom: moderateScale(SPACING.sm),
+    marginBottom: moderateScale(SPACING.md),
   },
   backButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
@@ -243,9 +240,9 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
   },
   headerTitle: {
-    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.xl),
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
     fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.text.primary,
+    color: COLORS.text.secondary,
   },
   scrollView: {
     flex: 1,
