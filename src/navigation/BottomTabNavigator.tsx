@@ -37,18 +37,13 @@ import DraftRecipePageScreen from '../features/cookbook/screens/DraftRecipePageS
 import SelectRecipesPageScreen from '../features/cookbook/screens/SelectRecipesPageScreen';
 import CookbookCoverSetupScreen from '../features/cookbook/screens/CookbookCoverSetupScreen';
 import CookbookCreationSummaryScreen from '../features/cookbook/screens/CookbookCreationSummaryScreen';
+import SearchRecipeScreen from '../features/search/screens/SearchRecipeScreen';
 
 
 
 const CreateScreen = () => (
   <View style={styles.placeholder}>
     <Text style={styles.placeholderText}>Create Recipe Screen</Text>
-  </View>
-);
-
-const SearchScreen = () => (
-  <View style={styles.placeholder}>
-    <Text style={styles.placeholderText}>Search Recipes Screen</Text>
   </View>
 );
 
@@ -80,7 +75,7 @@ const AppStackNavigator: React.FC<{ initialRouteName: string }> = ({
       <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Memory" component={MemoryScreen} />
       <Stack.Screen name="Create" component={CreateScreen} />
-      <Stack.Screen name="Search" component={SearchScreen} />
+      <Stack.Screen name="Search" component={SearchRecipeScreen} />
       <Stack.Screen name="Library" component={LibraryScreen} />
       <Stack.Screen name="ProfileSettings" component={ProfileSettingsScreen} />
       <Stack.Screen name="ChangeEmail" component={ChangeEmailScreen} />
@@ -95,7 +90,7 @@ const AppStackNavigator: React.FC<{ initialRouteName: string }> = ({
       <Stack.Screen name="SeasonalFood" component={SeasonalFoodScreen} />
       <Stack.Screen name="AddRecipe" component={AddRecipeScreen} />
       <Stack.Screen name="SmartScaling" component={SmartScalingScreen} />
-      <Stack.Screen name="ScaledRecipeResults" component={ScaledRecipeResultsScreen} />
+      <Stack.Screen name="ScaledRecipeResults" component={ScaledRecipeResultsScreen as React.ComponentType<any>} />
       <Stack.Screen name="DigitalCommittee" component={DigitalCommitteeScreen} />
       <Stack.Screen name="RecipeDescription" component={RecipeDescriptionScreen as React.ComponentType<any>} />
       <Stack.Screen name="CookbookReference" component={CookbookReferenceScreen as React.ComponentType<any>} />
