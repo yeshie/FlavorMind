@@ -1,5 +1,5 @@
 // src/features/scaling/screens/ScaledRecipeResultsScreen.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ArrowLeft, ChevronRight, Lightbulb } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
+import recipeService, { Recipe } from '../../../services/api/recipe.service';
 
 interface ScaledRecipeResultsScreenProps {
   navigation: any;
@@ -40,73 +42,59 @@ const ScaledRecipeResultsScreen: React.FC<ScaledRecipeResultsScreenProps> = ({
   route 
 }) => {
   const { scalingQuery } = route.params;
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [scaledRecipes, setScaledRecipes] = useState<ScaledRecipe[]>([]);
+  const [scaleMeta, setScaleMeta] = useState<{ baseIngredient?: string; baseAmount?: string }>({});
 
-  // Mock scaled recipes - In production, comes from AI
-  const scaledRecipes: ScaledRecipe[] = [
-    {
-      id: '1',
-      name: 'Classic Pancakes',
-      description: 'Fluffy American-style pancakes, perfectly scaled to your flour amount',
-      image: 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=800',
-      baseIngredient: 'All-purpose flour',
-      baseAmount: '2 cups',
-      scaledServings: 4,
-      prepTime: 20,
-      difficulty: 'easy',
-      matchScore: 98,
-    },
-    {
-      id: '2',
-      name: 'Banana Bread',
-      description: 'Moist and delicious banana bread, ingredients adjusted to your flour',
-      image: 'https://images.unsplash.com/photo-1606890737304-57a1ca8a5b62?w=800',
-      baseIngredient: 'All-purpose flour',
-      baseAmount: '2 cups',
-      scaledServings: 1,
-      prepTime: 65,
-      difficulty: 'easy',
-      matchScore: 95,
-    },
-    {
-      id: '3',
-      name: 'Chocolate Chip Cookies',
-      description: 'Classic cookies with perfectly balanced ingredients based on your flour',
-      image: 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=800',
-      baseIngredient: 'All-purpose flour',
-      baseAmount: '2 cups',
-      scaledServings: 24,
-      prepTime: 30,
-      difficulty: 'easy',
-      matchScore: 93,
-    },
-    {
-      id: '4',
-      name: 'Pizza Dough',
-      description: 'Perfect pizza dough scaled to your flour amount',
-      image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800',
-      baseIngredient: 'All-purpose flour',
-      baseAmount: '2 cups',
-      scaledServings: 2,
-      prepTime: 90,
-      difficulty: 'medium',
-      matchScore: 90,
-    },
-  ];
+  useEffect(() => {
+    const loadScaledRecipes = async () => {
+      setLoading(true);
+      try {
+        const response = await recipeService.scaleByIngredientQuery({
+          query: scalingQuery,
+          includeRecipes: true,
+          recipesLimit: 5,
+        });
+        const scale = response.data?.scale;
+        const recipes = response.data?.recipes || [];
+        const base = scale?.inputs?.[0];
+        setScaleMeta({
+          baseIngredient: base?.name,
+          baseAmount: base ? `${base.qty ?? base.quantity ?? ''} ${base.unit || ''}`.trim() : undefined,
+        });
+
+        const mapped = (recipes as Recipe[]).map((recipe) => ({
+          id: recipe.id,
+          name: recipe.title,
+          description: recipe.description || 'AI scaled recipe suggestion',
+          image: recipe.imageUrl || recipe.image || '',
+          baseIngredient: base?.name || 'Ingredient',
+          baseAmount: base ? `${base.qty ?? base.quantity ?? ''} ${base.unit || ''}`.trim() : '',
+          scaledServings: recipe.servings || 1,
+          prepTime: recipe.prepTime || recipe.cookTime || 0,
+          difficulty: recipe.difficulty || 'medium',
+          matchScore: recipe.matchScore || 85,
+        }));
+
+        setScaledRecipes(mapped);
+      } catch (error) {
+        console.error('Scaled recipes load error:', error);
+        setScaledRecipes([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadScaledRecipes();
+  }, [scalingQuery]);
 
   const handleRecipeSelect = (recipe: ScaledRecipe) => {
-    setLoading(true);
-    
-    // Simulate AI processing
-    setTimeout(() => {
-      setLoading(false);
-      navigation.navigate('RecipeCustomization', {
-        dishId: recipe.id,
-        dishName: recipe.name,
-        scalingQuery: scalingQuery,
-        isScaled: true,
-      });
-    }, 1000);
+    navigation.navigate('RecipeCustomization', {
+      dishId: recipe.id,
+      dishName: recipe.name,
+      scalingQuery: scalingQuery,
+      isScaled: true,
+    });
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -130,7 +118,10 @@ const ScaledRecipeResultsScreen: React.FC<ScaledRecipeResultsScreenProps> = ({
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <View style={styles.backButtonContent}>
+            <ArrowLeft size={scaleFontSize(16)} color={COLORS.pastelOrange.dark} />
+            <Text style={styles.backButtonText}>Back</Text>
+          </View>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Scaled Recipes</Text>
       </View>
@@ -146,7 +137,11 @@ const ScaledRecipeResultsScreen: React.FC<ScaledRecipeResultsScreenProps> = ({
         </View>
         <View style={styles.queryContent}>
           <Text style={styles.queryLabel}>Scaling based on:</Text>
-          <Text style={styles.queryText}>{scalingQuery}</Text>
+          <Text style={styles.queryText}>
+            {scaleMeta.baseAmount && scaleMeta.baseIngredient
+              ? `${scaleMeta.baseAmount} ${scaleMeta.baseIngredient}`.trim()
+              : scalingQuery}
+          </Text>
         </View>
       </View>
 
@@ -155,87 +150,105 @@ const ScaledRecipeResultsScreen: React.FC<ScaledRecipeResultsScreenProps> = ({
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.recipesContainer}>
-          {scaledRecipes.map((recipe) => (
-            <TouchableOpacity
-              key={recipe.id}
-              style={styles.recipeCard}
-              onPress={() => handleRecipeSelect(recipe)}
-              activeOpacity={0.9}
-            >
-              {/* Match Score Badge */}
-              <View style={styles.matchBadge}>
-                <Text style={styles.matchText}>{recipe.matchScore}% Match</Text>
-              </View>
-
-              {/* Recipe Image */}
-              <Image
-                source={{ uri: recipe.image }}
-                style={styles.recipeImage}
-                resizeMode="cover"
-              />
-
-              {/* Recipe Info */}
-              <View style={styles.recipeInfo}>
-                <Text style={styles.recipeName}>{recipe.name}</Text>
-                <Text style={styles.recipeDescription}>{recipe.description}</Text>
-
-                {/* Scaling Info */}
-                <View style={styles.scalingInfo}>
-                  <View style={styles.scalingBadge}>
-                    <Image
-                      source={require('../../../assets/icons/ruler.png')}
-                      style={styles.scalingBadgeIcon}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.scalingBadgeText}>
-                      Scaled to {recipe.baseAmount}
-                    </Text>
-                  </View>
+          {loading ? (
+            <View style={styles.loadingInline}>
+              <ActivityIndicator size="small" color={COLORS.pastelOrange.main} />
+              <Text style={styles.loadingInlineText}>Finding scaled recipes...</Text>
+            </View>
+          ) : scaledRecipes.length > 0 ? (
+            scaledRecipes.map((recipe) => (
+              <TouchableOpacity
+                key={recipe.id}
+                style={styles.recipeCard}
+                onPress={() => handleRecipeSelect(recipe)}
+                activeOpacity={0.9}
+              >
+                {/* Match Score Badge */}
+                <View style={styles.matchBadge}>
+                  <Text style={styles.matchText}>{recipe.matchScore}% Match</Text>
                 </View>
 
-                {/* Meta Info */}
-                <View style={styles.metaContainer}>
-                  <View style={styles.metaItem}>
-                    <Image
-                      source={require('../../../assets/icons/clock.png')}
-                      style={styles.metaIcon}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.metaText}>{recipe.prepTime} min</Text>
+                {/* Recipe Image */}
+                <Image
+                  source={
+                    recipe.image
+                      ? { uri: recipe.image }
+                      : require('../../../assets/icon.png')
+                  }
+                  style={styles.recipeImage}
+                  resizeMode="cover"
+                />
+
+                {/* Recipe Info */}
+                <View style={styles.recipeInfo}>
+                  <Text style={styles.recipeName}>{recipe.name}</Text>
+                  <Text style={styles.recipeDescription}>{recipe.description}</Text>
+
+                  {/* Scaling Info */}
+                  <View style={styles.scalingInfo}>
+                    <View style={styles.scalingBadge}>
+                      <Image
+                        source={require('../../../assets/icons/ruler.png')}
+                        style={styles.scalingBadgeIcon}
+                        resizeMode="contain"
+                      />
+                      <Text style={styles.scalingBadgeText}>
+                        Scaled to {recipe.baseAmount}
+                      </Text>
+                    </View>
                   </View>
 
-                  <View style={styles.metaItem}>
-                    <View
-                      style={[
-                        styles.difficultyDot,
-                        { backgroundColor: getDifficultyColor(recipe.difficulty) },
-                      ]}
-                    />
-                    <Text style={styles.metaText}>
-                      {recipe.difficulty.charAt(0).toUpperCase() + recipe.difficulty.slice(1)}
-                    </Text>
+                  {/* Meta Info */}
+                  <View style={styles.metaContainer}>
+                    <View style={styles.metaItem}>
+                      <Image
+                        source={require('../../../assets/icons/clock.png')}
+                        style={styles.metaIcon}
+                        resizeMode="contain"
+                      />
+                      <Text style={styles.metaText}>{recipe.prepTime} min</Text>
+                    </View>
+
+                    <View style={styles.metaItem}>
+                      <View
+                        style={[
+                          styles.difficultyDot,
+                          { backgroundColor: getDifficultyColor(recipe.difficulty) },
+                        ]}
+                      />
+                      <Text style={styles.metaText}>
+                        {recipe.difficulty.charAt(0).toUpperCase() + recipe.difficulty.slice(1)}
+                      </Text>
+                    </View>
+
+                    <View style={styles.metaItem}>
+                      <Text style={styles.metaIconText}>Serves</Text>
+                      <Text style={styles.metaText}>
+                        {recipe.scaledServings} {recipe.scaledServings === 1 ? 'serving' : 'servings'}
+                      </Text>
+                    </View>
                   </View>
 
-                  <View style={styles.metaItem}>
-                    <Text style={styles.metaIcon}>🍽️</Text>
-                    <Text style={styles.metaText}>
-                      {recipe.scaledServings} {recipe.scaledServings === 1 ? 'serving' : 'servings'}
-                    </Text>
+                  {/* Select Button */}
+                  <View style={styles.selectButton}>
+                    <View style={styles.selectButtonContent}>
+                      <Text style={styles.selectButtonText}>Select & Customize</Text>
+                      <ChevronRight size={scaleFontSize(16)} color={COLORS.text.white} />
+                    </View>
                   </View>
                 </View>
-
-                {/* Select Button */}
-                <View style={styles.selectButton}>
-                  <Text style={styles.selectButtonText}>Select & Customize →</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={styles.loadingInline}>
+              <Text style={styles.loadingInlineText}>No scaled recipes found yet.</Text>
+            </View>
+          )}
         </View>
 
         {/* Help Box */}
         <View style={styles.helpBox}>
-          <Text style={styles.helpIcon}>💡</Text>
+          <Lightbulb size={scaleFontSize(24)} color={COLORS.pastelYellow.dark} strokeWidth={2} style={styles.helpIcon} />
           <View style={styles.helpContent}>
             <Text style={styles.helpTitle}>All ingredients adjusted</Text>
             <Text style={styles.helpText}>
@@ -272,6 +285,11 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginBottom: moderateScale(SPACING.md),
+  },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
   },
   backButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
@@ -415,6 +433,12 @@ const styles = StyleSheet.create({
     tintColor: COLORS.text.secondary,
     marginRight: moderateScale(4),
   },
+  metaIconText: {
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.xs),
+    color: COLORS.text.secondary,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+    marginRight: moderateScale(4),
+  },
   metaText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.xs),
     color: COLORS.text.secondary,
@@ -432,6 +456,11 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.md,
     alignItems: 'center',
   },
+  selectButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
+  },
   selectButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
@@ -448,7 +477,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.pastelYellow.main,
   },
   helpIcon: {
-    fontSize: scaleFontSize(32),
     marginRight: moderateScale(SPACING.md),
   },
   helpContent: {
@@ -478,6 +506,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...SHADOWS.large,
   },
+  loadingInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: moderateScale(SPACING.sm),
+  },
+  loadingInlineText: {
+    marginLeft: moderateScale(SPACING.sm),
+    color: COLORS.text.secondary,
+  },
   loadingText: {
     marginTop: moderateScale(SPACING.md),
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
@@ -490,3 +527,4 @@ const styles = StyleSheet.create({
 });
 
 export default ScaledRecipeResultsScreen;
+

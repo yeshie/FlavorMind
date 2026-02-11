@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ArrowLeft, BookOpen, Check, Pencil, Sparkles } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
@@ -53,7 +54,7 @@ const CookbookCreationSummaryScreen: React.FC<CookbookCreationSummaryScreenProps
             setTimeout(() => {
               setIsPublishing(false);
               Alert.alert(
-                '🎉 Published!',
+                'Published!',
                 'Your cookbook has been published successfully!',
                 [
                   {
@@ -93,7 +94,10 @@ const CookbookCreationSummaryScreen: React.FC<CookbookCreationSummaryScreenProps
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.backButtonText}>← Edit</Text>
+          <View style={styles.backButtonContent}>
+            <ArrowLeft size={scaleFontSize(16)} color={COLORS.pastelOrange.dark} />
+            <Text style={styles.backButtonText}>Edit</Text>
+          </View>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Preview Cookbook</Text>
       </View>
@@ -105,7 +109,7 @@ const CookbookCreationSummaryScreen: React.FC<CookbookCreationSummaryScreenProps
         {/* Cover Preview */}
         <View style={styles.coverPreview}>
           <View style={styles.coverImagePlaceholder}>
-            <Text style={styles.coverImageIcon}>📚</Text>
+            <BookOpen size={scaleFontSize(72)} color={COLORS.pastelOrange.dark} strokeWidth={2} style={styles.coverImageIcon} />
           </View>
           <Text style={styles.coverTitle}>{coverData.title}</Text>
           <Text style={styles.coverAuthor}>by {coverData.authorName}</Text>
@@ -114,7 +118,7 @@ const CookbookCreationSummaryScreen: React.FC<CookbookCreationSummaryScreenProps
         {/* Summary Card */}
         <View style={styles.summaryCard}>
           <View style={styles.summaryHeader}>
-            <Text style={styles.summaryIcon}>📖</Text>
+            <BookOpen size={scaleFontSize(24)} color={COLORS.pastelOrange.main} strokeWidth={2} style={styles.summaryIcon} />
             <Text style={styles.summaryTitle}>Cookbook Summary</Text>
           </View>
 
@@ -189,7 +193,7 @@ const CookbookCreationSummaryScreen: React.FC<CookbookCreationSummaryScreenProps
 
         {/* Info Box */}
         <View style={styles.infoBox}>
-          <Text style={styles.infoBoxIcon}>🎉</Text>
+          <Sparkles size={scaleFontSize(24)} color={COLORS.pastelOrange.main} strokeWidth={2} style={styles.infoBoxIcon} />
           <View style={styles.infoBoxContent}>
             <Text style={styles.infoBoxTitle}>Ready to Publish?</Text>
             <Text style={styles.infoBoxText}>
@@ -202,19 +206,19 @@ const CookbookCreationSummaryScreen: React.FC<CookbookCreationSummaryScreenProps
         <View style={styles.guidelinesCard}>
           <Text style={styles.guidelinesTitle}>Publishing Guidelines</Text>
           <View style={styles.guidelineItem}>
-            <Text style={styles.guidelineBullet}>✓</Text>
+            <Check size={scaleFontSize(16)} color={COLORS.pastelGreen.dark} strokeWidth={2} style={styles.guidelineBullet} />
             <Text style={styles.guidelineText}>
               All recipes must have clear instructions
             </Text>
           </View>
           <View style={styles.guidelineItem}>
-            <Text style={styles.guidelineBullet}>✓</Text>
+            <Check size={scaleFontSize(16)} color={COLORS.pastelGreen.dark} strokeWidth={2} style={styles.guidelineBullet} />
             <Text style={styles.guidelineText}>
               Content must be appropriate for all audiences
             </Text>
           </View>
           <View style={styles.guidelineItem}>
-            <Text style={styles.guidelineBullet}>✓</Text>
+            <Check size={scaleFontSize(16)} color={COLORS.pastelGreen.dark} strokeWidth={2} style={styles.guidelineBullet} />
             <Text style={styles.guidelineText}>
               Respect copyright and give credit where due
             </Text>
@@ -231,7 +235,7 @@ const CookbookCreationSummaryScreen: React.FC<CookbookCreationSummaryScreenProps
           onPress={handleEdit}
           disabled={isPublishing}
         >
-          <Text style={styles.editIcon}>✏️</Text>
+          <Pencil size={scaleFontSize(18)} color={COLORS.text.primary} strokeWidth={2} style={styles.editIcon} />
           <Text style={styles.editText}>Edit Details</Text>
         </TouchableOpacity>
 
@@ -242,7 +246,7 @@ const CookbookCreationSummaryScreen: React.FC<CookbookCreationSummaryScreenProps
           loading={isPublishing}
           style={styles.publishButton}
         >
-          🌍 Publish Cookbook
+          Publish Cookbook
         </Button>
       </View>
     </SafeAreaView>
@@ -262,6 +266,11 @@ const styles = StyleSheet.create({
   backButton: {
     padding: moderateScale(SPACING.xs),
     marginBottom: moderateScale(SPACING.sm),
+  },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
   },
   backButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
@@ -295,7 +304,7 @@ const styles = StyleSheet.create({
     marginBottom: moderateScale(SPACING.lg),
   },
   coverImageIcon: {
-    fontSize: scaleFontSize(80),
+    marginBottom: moderateScale(SPACING.xs),
   },
   coverTitle: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize['3xl']),
@@ -326,7 +335,6 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border.light,
   },
   summaryIcon: {
-    fontSize: scaleFontSize(28),
     marginRight: moderateScale(SPACING.md),
   },
   summaryTitle: {
@@ -435,7 +443,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.pastelGreen.light,
   },
   infoBoxIcon: {
-    fontSize: scaleFontSize(32),
     marginRight: moderateScale(SPACING.md),
   },
   infoBoxContent: {
@@ -472,9 +479,6 @@ const styles = StyleSheet.create({
     marginBottom: moderateScale(SPACING.sm),
   },
   guidelineBullet: {
-    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
-    color: COLORS.pastelGreen.main,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
     marginRight: moderateScale(SPACING.sm),
     marginTop: moderateScale(2),
   },
@@ -506,7 +510,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background.white,
   },
   editIcon: {
-    fontSize: scaleFontSize(20),
     marginRight: moderateScale(SPACING.xs),
   },
   editText: {

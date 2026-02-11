@@ -1,5 +1,5 @@
 // src/features/adaptation/screens/AddRecipeScreen.tsx
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -10,11 +10,16 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import { ArrowLeft, Camera, Globe, Save, Trash2 } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
+import recipeService from '../../../services/api/recipe.service';
 
 interface AddRecipeScreenProps {
   navigation: any;
@@ -26,6 +31,35 @@ const AddRecipeScreen: React.FC<AddRecipeScreenProps> = ({ navigation }) => {
   const [alternatives, setAlternatives] = useState('');
   const [servingSize, setServingSize] = useState('');
   const [instructions, setInstructions] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [pickedImage, setPickedImage] = useState<{
+    uri: string;
+    name: string;
+    type: string;
+  } | null>(null);
+
+  const parsedIngredients = useMemo(() => {
+    return ingredients
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((name) => ({
+        name,
+        quantity: '',
+        unit: '',
+      }));
+  }, [ingredients]);
+
+  const parsedInstructions = useMemo(() => {
+    return instructions
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line, index) => ({
+        step: index + 1,
+        description: line.replace(/^\d+\.\s*/, ''),
+      }));
+  }, [instructions]);
 
   const handleDelete = () => {
     Alert.alert(
@@ -49,13 +83,76 @@ const AddRecipeScreen: React.FC<AddRecipeScreenProps> = ({ navigation }) => {
     );
   };
 
-  const handleSave = () => {
+  const handlePickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow photo access to upload an image.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaType.Images,
+      quality: 0.8,
+    });
+
+    if (result.canceled || !result.assets?.length) {
+      return;
+    }
+
+    const asset = result.assets[0];
+    const name = asset.fileName || `recipe_${Date.now()}.jpg`;
+    const type = asset.mimeType || 'image/jpeg';
+
+    setPickedImage({
+      uri: asset.uri,
+      name,
+      type,
+    });
+  };
+
+  const handleSave = async (publish: boolean) => {
     if (!dishName.trim()) {
       Alert.alert('Error', 'Please enter dish name');
       return;
     }
-    Alert.alert('Success', 'Recipe saved to your library!');
-    navigation.goBack();
+    if (parsedIngredients.length === 0 || parsedInstructions.length === 0) {
+      Alert.alert('Error', 'Please add ingredients and instructions');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      let imageUrl: string | undefined;
+      let imageId: string | undefined;
+      if (pickedImage) {
+        const upload = await recipeService.uploadRecipeImage(pickedImage);
+        imageUrl = upload.data?.imageUrl;
+        imageId = upload.data?.imageId;
+      }
+
+      await recipeService.createRecipe({
+        title: dishName.trim(),
+        description: alternatives.trim() || 'User-submitted recipe',
+        cuisine: 'Sri Lankan',
+        category: 'dinner',
+        difficulty: 'medium',
+        prepTime: 0,
+        cookTime: 0,
+        servings: Number(servingSize) || 1,
+        ingredients: parsedIngredients,
+        instructions: parsedInstructions,
+        isPublished: publish,
+        imageUrl: imageUrl || null,
+        imageId: imageId || null,
+      });
+      Alert.alert('Success', publish ? 'Recipe published!' : 'Recipe saved to your library!');
+      navigation.goBack();
+    } catch (error) {
+      console.error('Save recipe error:', error);
+      Alert.alert('Error', 'Could not save recipe right now.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSaveAndPublish = () => {
@@ -71,8 +168,7 @@ const AddRecipeScreen: React.FC<AddRecipeScreenProps> = ({ navigation }) => {
         {
           text: 'Publish',
           onPress: () => {
-            Alert.alert('Published!', 'Your recipe is now live in the community feed');
-            navigation.goBack();
+            handleSave(true);
           },
         },
       ]
@@ -91,7 +187,10 @@ const AddRecipeScreen: React.FC<AddRecipeScreenProps> = ({ navigation }) => {
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.backButtonText}>← Back</Text>
+            <View style={styles.backButtonContent}>
+              <ArrowLeft size={scaleFontSize(16)} color={COLORS.pastelOrange.dark} />
+              <Text style={styles.backButtonText}>Back</Text>
+            </View>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Add Your Own Recipe</Text>
         </View>
@@ -152,21 +251,31 @@ const AddRecipeScreen: React.FC<AddRecipeScreenProps> = ({ navigation }) => {
               <Text style={styles.label}>Serving Size (Optional)</Text>
               <TextInput
                 style={styles.input}
-                placeholder="e.g., 4 people"
+                placeholder="e.g., 4"
                 placeholderTextColor={COLORS.text.tertiary}
                 value={servingSize}
                 onChangeText={setServingSize}
+                keyboardType="numeric"
               />
             </View>
 
             {/* Upload Image Button */}
             <TouchableOpacity
               style={styles.uploadButton}
-              onPress={() => Alert.alert('Upload Image', 'Feature coming soon')}
+              onPress={handlePickImage}
             >
-              <Text style={styles.uploadIcon}>📷</Text>
-              <Text style={styles.uploadText}>Upload Image (Optional)</Text>
+              <Camera size={scaleFontSize(20)} color={COLORS.text.secondary} strokeWidth={2} style={styles.uploadIcon} />
+              <Text style={styles.uploadText}>
+                {pickedImage ? 'Change Image' : 'Upload Image (Optional)'}
+              </Text>
             </TouchableOpacity>
+            {pickedImage && (
+              <Image
+                source={{ uri: pickedImage.uri }}
+                style={styles.previewImage}
+                resizeMode="cover"
+              />
+            )}
 
             {/* Instructions */}
             <View style={styles.inputGroup}>
@@ -193,15 +302,15 @@ const AddRecipeScreen: React.FC<AddRecipeScreenProps> = ({ navigation }) => {
             style={styles.actionButton}
             onPress={handleDelete}
           >
-            <Text style={styles.actionIcon}>🗑</Text>
+            <Trash2 size={scaleFontSize(18)} color={COLORS.status.error} strokeWidth={2} style={styles.actionIcon} />
             <Text style={styles.actionText}>Delete</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={handleSave}
+            onPress={() => handleSave(false)}
           >
-            <Text style={styles.actionIcon}>💾</Text>
+            <Save size={scaleFontSize(18)} color={COLORS.text.primary} strokeWidth={2} style={styles.actionIcon} />
             <Text style={styles.actionText}>Save</Text>
           </TouchableOpacity>
 
@@ -209,10 +318,17 @@ const AddRecipeScreen: React.FC<AddRecipeScreenProps> = ({ navigation }) => {
             style={[styles.actionButton, styles.publishButton]}
             onPress={handleSaveAndPublish}
           >
-            <Text style={styles.actionIcon}>🌍</Text>
+            <Globe size={scaleFontSize(18)} color={COLORS.text.white} strokeWidth={2} style={styles.actionIcon} />
             <Text style={[styles.actionText, styles.publishText]}>Save & Publish</Text>
           </TouchableOpacity>
         </View>
+
+        {saving && (
+          <View style={styles.savingOverlay}>
+            <ActivityIndicator size="large" color={COLORS.pastelOrange.main} />
+            <Text style={styles.savingText}>Saving recipe...</Text>
+          </View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -233,6 +349,11 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginBottom: moderateScale(SPACING.md),
+  },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
   },
   backButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
@@ -292,13 +413,18 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border.main,
   },
   uploadIcon: {
-    fontSize: scaleFontSize(24),
     marginRight: moderateScale(SPACING.sm),
   },
   uploadText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
     fontWeight: TYPOGRAPHY.fontWeight.medium,
     color: COLORS.text.secondary,
+  },
+  previewImage: {
+    width: '100%',
+    height: moderateScale(180),
+    borderRadius: BORDER_RADIUS.md,
+    marginTop: moderateScale(SPACING.md),
   },
   actionBar: {
     flexDirection: 'row',
@@ -323,7 +449,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.pastelGreen.main,
   },
   actionIcon: {
-    fontSize: scaleFontSize(20),
     marginRight: moderateScale(SPACING.xs),
   },
   actionText: {
@@ -336,6 +461,17 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: moderateScale(SPACING['4xl']),
+  },
+  savingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  savingText: {
+    marginTop: moderateScale(SPACING.sm),
+    color: COLORS.text.primary,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
   },
 });
 

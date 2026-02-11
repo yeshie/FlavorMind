@@ -3,7 +3,7 @@
 export interface SeasonalItem {
   id: string;
   name: string;
-  image: string;
+  image?: string;
   status: 'high-harvest' | 'low-price' | 'limited';
   badge: string;
 }
@@ -19,7 +19,7 @@ export interface FeatureItem {
 export interface RecipeRecommendation {
   id: string;
   title: string;
-  image: string;
+  image?: string;
   matchScore: number;
   prepTime: number;
   difficulty: 'easy' | 'medium' | 'hard';
@@ -28,8 +28,8 @@ export interface RecipeRecommendation {
 }
 
 export interface UserLocation {
-  city: string;
-  country: string;
+  city?: string;
+  country?: string;
 }
 
 export interface MemoryQuery {

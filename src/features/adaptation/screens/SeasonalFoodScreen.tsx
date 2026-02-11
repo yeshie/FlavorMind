@@ -1,5 +1,5 @@
 // src/features/adaptation/screens/SeasonalFoodScreen.tsx
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,13 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ArrowLeft, ChevronRight, Circle } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
+import recipeService, { Recipe } from '../../../services/api/recipe.service';
 
 interface SeasonalFoodScreenProps {
   navigation: any;
@@ -20,45 +23,85 @@ interface SeasonalFoodScreenProps {
 interface SuggestedRecipe {
   id: string;
   title: string;
-  image: string;
+  image?: string;
   prepTime: number;
   difficulty: string;
+  recipe?: Recipe;
 }
 
 const SeasonalFoodScreen: React.FC<SeasonalFoodScreenProps> = ({ navigation, route }) => {
   const { food } = route.params;
+  const [suggestedRecipes, setSuggestedRecipes] = useState<SuggestedRecipe[]>([]);
+  const [loadingRecipes, setLoadingRecipes] = useState(true);
 
-  const suggestedRecipes: SuggestedRecipe[] = [
-    {
-      id: '1',
-      title: `${food.name} Curry`,
-      image: 'https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=400',
-      prepTime: 35,
-      difficulty: 'medium',
-    },
-    {
-      id: '2',
-      title: `${food.name} Salad`,
-      image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400',
-      prepTime: 15,
-      difficulty: 'easy',
-    },
-    {
-      id: '3',
-      title: `${food.name} Pickle`,
-      image: 'https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=400',
-      prepTime: 20,
-      difficulty: 'easy',
-    },
-  ];
+  const mapSuggestedRecipe = (recipe: Recipe): SuggestedRecipe => ({
+    id: recipe.id || recipe.title || recipe.dish || `${Date.now()}`,
+    title: recipe.title || recipe.dish || 'Recipe',
+    image: recipe.imageUrl || recipe.image,
+    prepTime: recipe.prepTime || recipe.cookTime || 0,
+    difficulty: recipe.difficulty || 'medium',
+    recipe,
+  });
+
+  const loadSuggestedRecipes = useCallback(async () => {
+    setLoadingRecipes(true);
+    try {
+      let recipes: Recipe[] = [];
+      try {
+        const response = await recipeService.getSimilarRecipes({
+          ingredient: food?.name,
+          category: food?.category,
+          q: food?.name,
+          limit: 5,
+        });
+        recipes = response.data.recipes || [];
+      } catch (error) {
+        console.error('Similar recipes load error:', error);
+      }
+
+      if (recipes.length > 0) {
+        setSuggestedRecipes(recipes.map(mapSuggestedRecipe));
+        return;
+      }
+
+      try {
+        const generated = await recipeService.generateRecipeByDish({
+          dish: food?.name || 'Seasonal recipe',
+          servings: 2,
+          locale: 'Sri Lanka',
+        });
+        const recipe = generated.data?.recipe;
+        if (recipe) {
+          setSuggestedRecipes([mapSuggestedRecipe(recipe)]);
+        } else {
+          setSuggestedRecipes([]);
+        }
+      } catch (error) {
+        console.error('Recipe generation fallback error:', error);
+        setSuggestedRecipes([]);
+      }
+    } finally {
+      setLoadingRecipes(false);
+    }
+  }, [food?.category, food?.name]);
 
   const handleRecipePress = (recipe: SuggestedRecipe) => {
     // Navigate to Recipe Ingredient Page (using existing RecipeCustomizationScreen)
     navigation.navigate('RecipeCustomization', {
       dishName: recipe.title,
-      dishId: recipe.id,
+      dishId: recipe.recipe ? undefined : recipe.id,
+      recipe: recipe.recipe,
+      autoAdapt: true,
+      sourceIngredient: food?.name,
     });
   };
+
+  useEffect(() => {
+    loadSuggestedRecipes();
+  }, [loadSuggestedRecipes]);
+
+  const seasonLabel = food?.season || food?.badge || 'Seasonal';
+  const availabilityLabel = food?.availability || 'Available now';
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -68,7 +111,10 @@ const SeasonalFoodScreen: React.FC<SeasonalFoodScreenProps> = ({ navigation, rou
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <View style={styles.backButtonContent}>
+            <ArrowLeft size={scaleFontSize(16)} color={COLORS.pastelOrange.dark} />
+            <Text style={styles.backButtonText}>Back</Text>
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -79,14 +125,18 @@ const SeasonalFoodScreen: React.FC<SeasonalFoodScreenProps> = ({ navigation, rou
         {/* Large Food Image */}
         <View style={styles.imageContainer}>
           <Image
-            source={{ uri: food.image }}
+            source={
+              food?.image
+                ? { uri: food.image }
+                : require('../../../assets/icon.png')
+            }
             style={styles.foodImage}
             resizeMode="cover"
           />
           <View style={styles.titleOverlay}>
             <Text style={styles.foodTitle}>{food.name}</Text>
             <View style={styles.availabilityTag}>
-              <Text style={styles.availabilityText}>{food.season}</Text>
+              <Text style={styles.availabilityText}>{seasonLabel}</Text>
             </View>
           </View>
         </View>
@@ -95,9 +145,9 @@ const SeasonalFoodScreen: React.FC<SeasonalFoodScreenProps> = ({ navigation, rou
         <View style={styles.descriptionSection}>
           <Text style={styles.descriptionTitle}>Benefits & Uses</Text>
           <Text style={styles.descriptionText}>
-            {food.name} is {food.availability.toLowerCase()} and packed with nutrients.
+            {food.name} is {availabilityLabel.toLowerCase()} and packed with nutrients.
             It's perfect for traditional dishes and adds a unique flavor to your cooking.
-            Available fresh during {food.season.toLowerCase()} season.
+            Available fresh during {seasonLabel.toLowerCase()} season.
           </Text>
         </View>
 
@@ -108,31 +158,52 @@ const SeasonalFoodScreen: React.FC<SeasonalFoodScreenProps> = ({ navigation, rou
             Delicious ways to use {food.name} in your cooking
           </Text>
 
-          {suggestedRecipes.map((recipe) => (
-            <TouchableOpacity
-              key={recipe.id}
-              style={styles.recipeCard}
-              onPress={() => handleRecipePress(recipe)}
-              activeOpacity={0.9}
-            >
-              <Image
-                source={{ uri: recipe.image }}
-                style={styles.recipeImage}
-                resizeMode="cover"
-              />
-              <View style={styles.recipeInfo}>
-                <Text style={styles.recipeTitle}>{recipe.title}</Text>
-                <View style={styles.recipeMeta}>
-                  <Text style={styles.recipeTime}>⏱ {recipe.prepTime} min</Text>
-                  <Text style={styles.recipeDifficulty}>
-                    {recipe.difficulty === 'easy' ? '🟢' :
-                     recipe.difficulty === 'medium' ? '🟡' : '🔴'} {recipe.difficulty}
-                  </Text>
+          {loadingRecipes ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={COLORS.pastelOrange.main} />
+              <Text style={styles.loadingText}>Finding recipes...</Text>
+            </View>
+          ) : suggestedRecipes.length > 0 ? (
+            suggestedRecipes.map((recipe) => (
+              <TouchableOpacity
+                key={recipe.id}
+                style={styles.recipeCard}
+                onPress={() => handleRecipePress(recipe)}
+                activeOpacity={0.9}
+              >
+                <Image
+                  source={
+                    recipe.image
+                      ? { uri: recipe.image }
+                      : require('../../../assets/icon.png')
+                  }
+                  style={styles.recipeImage}
+                  resizeMode="cover"
+                />
+                <View style={styles.recipeInfo}>
+                  <Text style={styles.recipeTitle}>{recipe.title}</Text>
+                  <View style={styles.recipeMeta}>
+                    <Text style={styles.recipeTime}>Time {recipe.prepTime} min</Text>
+                    <View style={styles.recipeDifficulty}>
+                      <Circle
+                        size={scaleFontSize(10)}
+                        color={getDifficultyColor(recipe.difficulty)}
+                        fill={getDifficultyColor(recipe.difficulty)}
+                      />
+                      <Text style={styles.recipeDifficultyText}>{recipe.difficulty}</Text>
+                    </View>
+                  </View>
                 </View>
-              </View>
-              <Text style={styles.arrowIcon}>→</Text>
-            </TouchableOpacity>
-          ))}
+                <View style={styles.arrowIcon}>
+                  <ChevronRight size={scaleFontSize(20)} color={COLORS.text.tertiary} />
+                </View>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>No recipe suggestions yet.</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.bottomSpacer} />
@@ -156,6 +227,11 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginBottom: moderateScale(SPACING.sm),
+  },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
   },
   backButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
@@ -261,17 +337,26 @@ const styles = StyleSheet.create({
     marginRight: moderateScale(SPACING.md),
   },
   recipeDifficulty: {
-    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.sm),
-    color: COLORS.text.secondary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(6),
   },
-  arrowIcon: {
-    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.lg),
+  recipeDifficultyText: {
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.sm),
     color: COLORS.text.secondary,
   },
   bottomSpacer: {
     height: moderateScale(SPACING['4xl']),
   },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: moderateScale(SPACING.sm),
+  },
+  loadingText: {
+    marginLeft: moderateScale(SPACING.sm),
+    color: COLORS.text.secondary,
+  },
 });
 
 export default SeasonalFoodScreen;
-

@@ -18,12 +18,14 @@ interface DoneScreenProps {
     params: {
       dishName: string;
       servingSize: number;
+      totalCookTime?: number;
+      recipeId?: string;
     };
   };
 }
 
 const DoneScreen: React.FC<DoneScreenProps> = ({ navigation, route }) => {
-  const { dishName, servingSize } = route.params;
+  const { dishName, servingSize, totalCookTime, recipeId } = route.params;
 
   const handleGoHome = () => {
     // Navigate to Home and reset the stack
@@ -33,10 +35,12 @@ const DoneScreen: React.FC<DoneScreenProps> = ({ navigation, route }) => {
     });
   };
 
-  const handleGiveFeedback = () => {
-    navigation.navigate('Feedback', {
+  const handleStartTimer = () => {
+    navigation.navigate('CookingTimer', {
       dishName,
+      totalCookTime: totalCookTime || 20,
       servingSize,
+      recipeId,
     });
   };
 
@@ -51,15 +55,15 @@ const DoneScreen: React.FC<DoneScreenProps> = ({ navigation, route }) => {
         {/* Success Icon */}
         <View style={styles.iconContainer}>
           <View style={styles.iconCircle}>
-            <Text style={styles.iconText}>✓</Text>
+            <Text style={styles.iconText}>OK</Text>
           </View>
         </View>
 
         {/* Success Message */}
         <View style={styles.messageContainer}>
-          <Text style={styles.title}>🎉 Cooking Complete!</Text>
+          <Text style={styles.title}>Steps Complete!</Text>
           <Text style={styles.subtitle}>
-            Your {dishName} is ready to be enjoyed
+            Your {dishName} is ready for the timer
           </Text>
           <View style={styles.servingBadge}>
             <Text style={styles.servingText}>Served {servingSize} {servingSize === 1 ? 'person' : 'people'}</Text>
@@ -84,10 +88,10 @@ const DoneScreen: React.FC<DoneScreenProps> = ({ navigation, route }) => {
             variant="primary"
             size="large"
             fullWidth
-            onPress={handleGiveFeedback}
+            onPress={handleStartTimer}
             style={styles.feedbackButton}
           >
-            Give Feedback
+            Start Timer
           </Button>
 
           <Button
@@ -104,7 +108,7 @@ const DoneScreen: React.FC<DoneScreenProps> = ({ navigation, route }) => {
 
         {/* Tips Section */}
         <View style={styles.tipsContainer}>
-          <Text style={styles.tipsTitle}>💡 Did you know?</Text>
+          <Text style={styles.tipsTitle}>Tip</Text>
           <Text style={styles.tipsText}>
             Your feedback helps FlavorMind learn your preferences and suggest even better recipes next time!
           </Text>

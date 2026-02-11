@@ -26,6 +26,7 @@ import SeasonalFoodScreen from '../features/adaptation/screens/SeasonalFoodScree
 import AddRecipeScreen from '../features/adaptation/screens/AddRecipeScreen';
 import SmartScalingScreen from '../features/scaling/screens/SmartScalingScreen';
 import ScaledRecipeResultsScreen from '../features/scaling/screens/ScaledRecipeResultsScreen';
+import SmartScalingSearchResultsScreen from '../features/scaling/screens/SmartScalingSearchResultsScreen';
 import DigitalCommitteeScreen from '../features/community/screens/DigitalCommitteeScreen';
 import RecipeDescriptionScreen from '../features/community/screens/RecipeDescriptionScreen';
 import CookbookReferenceScreen from '../features/community/screens/CookbookReferenceScreen';
@@ -91,6 +92,7 @@ const AppStackNavigator: React.FC<{ initialRouteName: string }> = ({
       <Stack.Screen name="AddRecipe" component={AddRecipeScreen} />
       <Stack.Screen name="SmartScaling" component={SmartScalingScreen} />
       <Stack.Screen name="ScaledRecipeResults" component={ScaledRecipeResultsScreen as React.ComponentType<any>} />
+      <Stack.Screen name="SmartScalingSearchResults" component={SmartScalingSearchResultsScreen as React.ComponentType<any>} />
       <Stack.Screen name="DigitalCommittee" component={DigitalCommitteeScreen} />
       <Stack.Screen name="RecipeDescription" component={RecipeDescriptionScreen as React.ComponentType<any>} />
       <Stack.Screen name="CookbookReference" component={CookbookReferenceScreen as React.ComponentType<any>} />
@@ -138,19 +140,19 @@ const BottomTabNavigator: React.FC = () => {
           let iconSource;
 
           switch (route.name) {
-            case 'Home':
+            case 'HomeTab':
               iconSource = require('../assets/icons/home.png');
               break;
-            case 'Memory':
+            case 'MemoryTab':
               iconSource = require('../assets/icons/memory.png');
               break;
-            case 'Create':
+            case 'CreateTab':
               iconSource = require('../assets/icons/plus.png');
               break;
-            case 'Search':
+            case 'SearchTab':
               iconSource = require('../assets/icons/search.png');
               break;
-            case 'Library':
+            case 'LibraryTab':
               iconSource = require('../assets/icons/book.png');
               break;
             default:
@@ -158,7 +160,7 @@ const BottomTabNavigator: React.FC = () => {
           }
 
           // Special styling for Create button
-          if (route.name === 'Create') {
+          if (route.name === 'CreateTab') {
             return (
               <View style={tabStyles.createIconContainer}>
                 <Image
@@ -191,19 +193,19 @@ const BottomTabNavigator: React.FC = () => {
       })}
     >
       <Tab.Screen
-        name="Home"
+        name="HomeTab"
         options={{ tabBarLabel: 'Home' }}
       >
         {() => <AppStackNavigator initialRouteName="Home" />}
       </Tab.Screen>
       <Tab.Screen
-        name="Memory"
+        name="MemoryTab"
         options={{ tabBarLabel: 'Recall' }}
       >
         {() => <AppStackNavigator initialRouteName="Memory" />}
       </Tab.Screen>
       <Tab.Screen
-        name="Create"
+        name="CreateTab"
         options={{
           tabBarLabel: 'Create',
         }}
@@ -211,13 +213,13 @@ const BottomTabNavigator: React.FC = () => {
         {() => <AppStackNavigator initialRouteName="Create" />}
       </Tab.Screen>
       <Tab.Screen
-        name="Search"
+        name="SearchTab"
         options={{ tabBarLabel: 'Search' }}
       >
         {() => <AppStackNavigator initialRouteName="Search" />}
       </Tab.Screen>
       <Tab.Screen
-        name="Library"
+        name="LibraryTab"
         options={{ tabBarLabel: 'Library' }}
       >
         {() => <AppStackNavigator initialRouteName="Library" />}

@@ -10,6 +10,7 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ArrowLeft, Bell, ChevronRight, FileText, Globe, HelpCircle, Info, Key, Lock, Mail, Pencil } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Input from '../../../common/components/Input/Input';
@@ -100,7 +101,10 @@ const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({ navigatio
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <View style={styles.backButtonContent}>
+            <ArrowLeft size={scaleFontSize(16)} color={COLORS.pastelOrange.dark} />
+            <Text style={styles.backButtonText}>Back</Text>
+          </View>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile Settings</Text>
       </View>
@@ -118,11 +122,16 @@ const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({ navigatio
               resizeMode="cover"
             />
             <TouchableOpacity style={styles.editAvatarButton}>
-              <Text style={styles.editAvatarText}>✏️</Text>
+              <Pencil size={scaleFontSize(16)} color={COLORS.text.white} strokeWidth={2} style={styles.editAvatarText} />
             </TouchableOpacity>
           </View>
           
-          <Text style={styles.userName}>{user?.displayName || user?.name || 'User'}</Text>
+          <Text style={styles.userName}>
+            {user?.displayName ||
+              user?.name ||
+              (user?.email ? user.email.split('@')[0] : '') ||
+              'User'}
+          </Text>
           <Text style={styles.userEmail}>{user?.email || 'No email'}</Text>
           
           <Button
@@ -145,13 +154,13 @@ const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({ navigatio
             activeOpacity={0.7}
           >
             <View style={styles.settingIconContainer}>
-              <Text style={styles.settingIcon}>📧</Text>
+              <Mail size={scaleFontSize(18)} color={COLORS.text.secondary} strokeWidth={2} style={styles.settingIcon} />
             </View>
             <View style={styles.settingContent}>
               <Text style={styles.settingLabel}>Change Email</Text>
               <Text style={styles.settingDescription}>Update your email address</Text>
             </View>
-            <Text style={styles.settingArrow}>›</Text>
+            <ChevronRight size={scaleFontSize(18)} color={COLORS.text.tertiary} style={styles.settingArrow} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -160,13 +169,13 @@ const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({ navigatio
             activeOpacity={0.7}
           >
             <View style={styles.settingIconContainer}>
-              <Text style={styles.settingIcon}>🔒</Text>
+              <Lock size={scaleFontSize(18)} color={COLORS.text.secondary} strokeWidth={2} style={styles.settingIcon} />
             </View>
             <View style={styles.settingContent}>
               <Text style={styles.settingLabel}>Change Password</Text>
               <Text style={styles.settingDescription}>Update your password</Text>
             </View>
-            <Text style={styles.settingArrow}>›</Text>
+            <ChevronRight size={scaleFontSize(18)} color={COLORS.text.tertiary} style={styles.settingArrow} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -175,13 +184,13 @@ const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({ navigatio
             activeOpacity={0.7}
           >
             <View style={styles.settingIconContainer}>
-              <Text style={styles.settingIcon}>🔑</Text>
+              <Key size={scaleFontSize(18)} color={COLORS.text.secondary} strokeWidth={2} style={styles.settingIcon} />
             </View>
             <View style={styles.settingContent}>
               <Text style={styles.settingLabel}>Forgot Password</Text>
               <Text style={styles.settingDescription}>Reset your password via email</Text>
             </View>
-            <Text style={styles.settingArrow}>›</Text>
+            <ChevronRight size={scaleFontSize(18)} color={COLORS.text.tertiary} style={styles.settingArrow} />
           </TouchableOpacity>
         </View>
 
@@ -195,13 +204,13 @@ const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({ navigatio
             activeOpacity={0.7}
           >
             <View style={styles.settingIconContainer}>
-              <Text style={styles.settingIcon}>🔔</Text>
+              <Bell size={scaleFontSize(18)} color={COLORS.text.secondary} strokeWidth={2} style={styles.settingIcon} />
             </View>
             <View style={styles.settingContent}>
               <Text style={styles.settingLabel}>Notifications</Text>
               <Text style={styles.settingDescription}>Manage notification settings</Text>
             </View>
-            <Text style={styles.settingArrow}>›</Text>
+            <ChevronRight size={scaleFontSize(18)} color={COLORS.text.tertiary} style={styles.settingArrow} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -210,13 +219,13 @@ const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({ navigatio
             activeOpacity={0.7}
           >
             <View style={styles.settingIconContainer}>
-              <Text style={styles.settingIcon}>🌐</Text>
+              <Globe size={scaleFontSize(18)} color={COLORS.text.secondary} strokeWidth={2} style={styles.settingIcon} />
             </View>
             <View style={styles.settingContent}>
               <Text style={styles.settingLabel}>Language</Text>
               <Text style={styles.settingDescription}>English</Text>
             </View>
-            <Text style={styles.settingArrow}>›</Text>
+            <ChevronRight size={scaleFontSize(18)} color={COLORS.text.tertiary} style={styles.settingArrow} />
           </TouchableOpacity>
         </View>
 
@@ -230,13 +239,13 @@ const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({ navigatio
             activeOpacity={0.7}
           >
             <View style={styles.settingIconContainer}>
-              <Text style={styles.settingIcon}>❓</Text>
+              <HelpCircle size={scaleFontSize(18)} color={COLORS.text.secondary} strokeWidth={2} style={styles.settingIcon} />
             </View>
             <View style={styles.settingContent}>
               <Text style={styles.settingLabel}>Help & Support</Text>
               <Text style={styles.settingDescription}>Get help and contact us</Text>
             </View>
-            <Text style={styles.settingArrow}>›</Text>
+            <ChevronRight size={scaleFontSize(18)} color={COLORS.text.tertiary} style={styles.settingArrow} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -245,13 +254,13 @@ const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({ navigatio
             activeOpacity={0.7}
           >
             <View style={styles.settingIconContainer}>
-              <Text style={styles.settingIcon}>📄</Text>
+              <FileText size={scaleFontSize(18)} color={COLORS.text.secondary} strokeWidth={2} style={styles.settingIcon} />
             </View>
             <View style={styles.settingContent}>
               <Text style={styles.settingLabel}>Terms & Privacy</Text>
               <Text style={styles.settingDescription}>Read our terms and privacy policy</Text>
             </View>
-            <Text style={styles.settingArrow}>›</Text>
+            <ChevronRight size={scaleFontSize(18)} color={COLORS.text.tertiary} style={styles.settingArrow} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -260,13 +269,13 @@ const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({ navigatio
             activeOpacity={0.7}
           >
             <View style={styles.settingIconContainer}>
-              <Text style={styles.settingIcon}>ℹ️</Text>
+              <Info size={scaleFontSize(18)} color={COLORS.text.secondary} strokeWidth={2} style={styles.settingIcon} />
             </View>
             <View style={styles.settingContent}>
               <Text style={styles.settingLabel}>App Version</Text>
               <Text style={styles.settingDescription}>1.0.0</Text>
             </View>
-            <Text style={styles.settingArrow}>›</Text>
+            <ChevronRight size={scaleFontSize(18)} color={COLORS.text.tertiary} style={styles.settingArrow} />
           </TouchableOpacity>
         </View>
 
@@ -315,6 +324,11 @@ const styles = StyleSheet.create({
     padding: moderateScale(SPACING.xs),
     marginBottom: moderateScale(SPACING.sm),
   },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
+  },
   backButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
     color: COLORS.pastelOrange.dark,
@@ -362,9 +376,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: COLORS.background.white,
   },
-  editAvatarText: {
-    fontSize: scaleFontSize(14),
-  },
+  editAvatarText: {},
   userName: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize['2xl']),
     fontWeight: TYPOGRAPHY.fontWeight.bold,
@@ -410,9 +422,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: moderateScale(SPACING.md),
   },
-  settingIcon: {
-    fontSize: scaleFontSize(20),
-  },
+  settingIcon: {},
   settingContent: {
     flex: 1,
   },
@@ -426,11 +436,7 @@ const styles = StyleSheet.create({
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.xs),
     color: COLORS.text.secondary,
   },
-  settingArrow: {
-    fontSize: scaleFontSize(24),
-    color: COLORS.text.tertiary,
-    fontWeight: TYPOGRAPHY.fontWeight.regular,
-  },
+  settingArrow: {},
   logoutButton: {
     borderColor: COLORS.pastelOrange.main,
     marginBottom: moderateScale(SPACING.md),

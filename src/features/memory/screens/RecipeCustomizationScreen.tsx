@@ -1,5 +1,5 @@
 // src/features/memory/screens/RecipeCustomizationScreen.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,14 @@ import {
   StyleSheet,
   Switch,
   Modal,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
+import recipeService, { Recipe } from '../../../services/api/recipe.service';
 
 interface RecipeCustomizationScreenProps {
   navigation: any;
@@ -20,6 +23,9 @@ interface RecipeCustomizationScreenProps {
     params: {
       dishName: string;
       dishId?: string;
+      recipe?: Recipe;
+      autoAdapt?: boolean;
+      sourceIngredient?: string;
     };
   };
 }
@@ -27,9 +33,9 @@ interface RecipeCustomizationScreenProps {
 interface Ingredient {
   id: string;
   name: string;
-  quantity: number;
+  quantity: number | string;
   unit: string;
-  originalQuantity: number;
+  originalQuantity: number | string;
   selected: boolean;
   localAlternative?: {
     name: string;
@@ -38,12 +44,19 @@ interface Ingredient {
 }
 
 const RecipeCustomizationScreen: React.FC<RecipeCustomizationScreenProps> = ({ navigation, route }) => {
-  const { dishName } = route.params;
+  const { dishName, dishId, recipe: recipeParam, autoAdapt, sourceIngredient } = route.params;
   
   const [servingSize, setServingSize] = useState(1);
   const [localAdaptationEnabled, setLocalAdaptationEnabled] = useState(false);
   const [showLocalModal, setShowLocalModal] = useState(false);
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
+  const [loadingRecipe, setLoadingRecipe] = useState(false);
+  const [scaling, setScaling] = useState(false);
+  const [instructions, setInstructions] = useState<string[]>([]);
+  const [recipeId, setRecipeId] = useState<string | undefined>(dishId || recipeParam?.id);
+  const [totalCookTime, setTotalCookTime] = useState<number>(0);
+  const [hasLoadedRecipe, setHasLoadedRecipe] = useState(false);
+  const [autoAdaptApplied, setAutoAdaptApplied] = useState(false);
 
   const [ingredients, setIngredients] = useState<Ingredient[]>([
     {
@@ -120,15 +133,181 @@ const RecipeCustomizationScreen: React.FC<RecipeCustomizationScreenProps> = ({ n
     },
   ]);
 
-  const handleServingSizeChange = (delta: number) => {
-    const newSize = Math.max(1, Math.min(10, servingSize + delta));
+  const mapIngredientsFromApi = (items: any[] = []): Ingredient[] =>
+    items.map((item, index) => {
+      if (typeof item === 'string') {
+        return {
+          id: `${index}`,
+          name: item,
+          quantity: '',
+          unit: '',
+          originalQuantity: '',
+          selected: true,
+        };
+      }
+
+      return {
+        id: item.id || `${index}`,
+        name: item.name || item.title || item.ingredient || `Ingredient ${index + 1}`,
+        quantity: item.quantity ?? item.qty ?? item.amount ?? '',
+        unit: item.unit ?? '',
+        originalQuantity: item.quantity ?? item.qty ?? item.amount ?? '',
+        selected: true,
+      };
+    });
+
+  const applyRecipeData = (recipeData?: Recipe) => {
+    if (!recipeData) return;
+    if (Array.isArray(recipeData.ingredients) && recipeData.ingredients.length > 0) {
+      setIngredients(mapIngredientsFromApi(recipeData.ingredients));
+      setHasLoadedRecipe(true);
+    }
+    if (recipeData.servings) {
+      setServingSize(recipeData.servings);
+    }
+    if (recipeData.id) {
+      setRecipeId(recipeData.id);
+    }
+
+    const recipeSteps =
+      Array.isArray(recipeData.instructions)
+        ? recipeData.instructions.map((step) => step.description || `${step}`)
+        : Array.isArray((recipeData as any).steps)
+          ? (recipeData as any).steps.map((step: any) =>
+              typeof step === 'string' ? step : step?.description || ''
+            )
+          : [];
+    setInstructions(recipeSteps.filter(Boolean));
+
+    const prep = Number.isFinite(recipeData.prepTime) ? recipeData.prepTime : 0;
+    const cook = Number.isFinite(recipeData.cookTime) ? recipeData.cookTime : 0;
+    const timerTotal =
+      (recipeData as any)?.timerRecommendation?.total_min ||
+      (recipeData as any)?.timer_recommendation?.total_min ||
+      0;
+    setTotalCookTime(timerTotal || prep + cook);
+  };
+
+  const applyAutoLocalAdaptations = async (items: Ingredient[]) => {
+    if (!autoAdapt || autoAdaptApplied || !items.length) return;
+
+    try {
+      const ingredientNames = items.map((item) => item.name).filter(Boolean);
+      if (!ingredientNames.length) return;
+
+      const response = await recipeService.getLocalAdaptations({
+        dishName,
+        ingredients: ingredientNames,
+        limit: Math.min(ingredientNames.length, 10),
+      });
+      const adaptations = response.data?.adaptations || [];
+      if (!adaptations.length) return;
+
+      const updated = items.map((ingredient) => {
+        const name = ingredient.name.toLowerCase();
+        const match = adaptations.find((adaptation: any) => {
+          const original =
+            adaptation.original ||
+            adaptation.ingredient ||
+            adaptation.from ||
+            adaptation.name ||
+            '';
+          if (!original) return false;
+          const originalLower = String(original).toLowerCase();
+          return name.includes(originalLower) || originalLower.includes(name);
+        });
+
+        if (!match) return ingredient;
+
+        return {
+          ...ingredient,
+          localAlternative: {
+            name:
+              match.substitute ||
+              match.replacement ||
+              match.to ||
+              match.local ||
+              match.suggested ||
+              'Local alternative',
+            reason: match.reason || match.why || '',
+          },
+        };
+      });
+
+      setIngredients(updated);
+      setLocalAdaptationEnabled(true);
+      setAutoAdaptApplied(true);
+    } catch (error) {
+      console.error('Auto local adaptation error:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (recipeParam) {
+      applyRecipeData(recipeParam);
+    }
+
+    const loadRecipe = async () => {
+      if (!dishId) return;
+      if (recipeParam?.ingredients?.length) return;
+      setLoadingRecipe(true);
+      try {
+        const response = await recipeService.getRecipe(dishId);
+        const recipeData = response.data?.recipe;
+        applyRecipeData(recipeData);
+      } catch (error) {
+        console.error('Load recipe error:', error);
+      } finally {
+        setLoadingRecipe(false);
+      }
+    };
+
+    loadRecipe();
+  }, [dishId, recipeParam]);
+
+  useEffect(() => {
+    if (!hasLoadedRecipe) return;
+    if (!autoAdapt || autoAdaptApplied) return;
+    applyAutoLocalAdaptations(ingredients);
+  }, [autoAdapt, autoAdaptApplied, hasLoadedRecipe, ingredients]);
+
+  const handleServingSizeChange = async (delta: number) => {
+    const newSize = Math.max(1, Math.min(20, servingSize + delta));
     setServingSize(newSize);
-    
-    // Scale all ingredients
-    setIngredients(ingredients.map(ing => ({
-      ...ing,
-      quantity: (ing.originalQuantity * newSize),
-    })));
+
+    if (!dishId) {
+      // Fallback: local scaling for demo data
+      setIngredients((current) =>
+        current.map((ing) => {
+          const numeric = typeof ing.originalQuantity === 'number'
+            ? ing.originalQuantity
+            : Number.parseFloat(`${ing.originalQuantity}`);
+          if (!Number.isFinite(numeric)) {
+            return ing;
+          }
+          return { ...ing, quantity: numeric * newSize };
+        })
+      );
+      return;
+    }
+
+    setScaling(true);
+    try {
+      const response = await recipeService.scaleRecipe(dishId, newSize);
+      const scaled = response.data || {};
+      const scaledIngredients =
+        scaled.ingredients ||
+        scaled.scaledIngredients ||
+        scaled.scaled_ingredients ||
+        [];
+      if (Array.isArray(scaledIngredients) && scaledIngredients.length > 0) {
+        setIngredients(mapIngredientsFromApi(scaledIngredients));
+      }
+    } catch (error) {
+      console.error('Scale recipe error:', error);
+    } finally {
+      setScaling(false);
+    }
   };
 
   const toggleIngredient = (id: string) => {
@@ -137,10 +316,48 @@ const RecipeCustomizationScreen: React.FC<RecipeCustomizationScreenProps> = ({ n
     ));
   };
 
-  const showLocalAlternative = (ingredient: Ingredient) => {
+  const showLocalAlternative = async (ingredient: Ingredient) => {
     if (ingredient.localAlternative) {
       setSelectedIngredient(ingredient);
       setShowLocalModal(true);
+      return;
+    }
+
+    if (!localAdaptationEnabled) {
+      return;
+    }
+
+    try {
+      const response = await recipeService.getLocalAdaptations({
+        dishName: dishName,
+        ingredients: ingredient.name,
+        limit: 1,
+      });
+      const adaptations = response.data?.adaptations || [];
+      const match = adaptations[0];
+      if (match) {
+        const updated = {
+          ...ingredient,
+          localAlternative: {
+            name:
+              match.substitute ||
+              match.local ||
+              match.suggested ||
+              'Local alternative',
+            reason: match.reason || match.why || '',
+          },
+        };
+        setIngredients((current) =>
+          current.map((ing) => (ing.id === ingredient.id ? updated : ing))
+        );
+        setSelectedIngredient(updated);
+        setShowLocalModal(true);
+      } else {
+        Alert.alert('No alternative found', 'Try another ingredient.');
+      }
+    } catch (error) {
+      console.error('Local adaptation error:', error);
+      Alert.alert('Error', 'Could not load local alternatives.');
     }
   };
 
@@ -161,6 +378,9 @@ const RecipeCustomizationScreen: React.FC<RecipeCustomizationScreenProps> = ({ n
       dishName,
       servingSize,
       ingredients: selectedIngredients,
+      instructions,
+      totalCookTime,
+      recipeId,
     });
   };
 
@@ -172,7 +392,7 @@ const RecipeCustomizationScreen: React.FC<RecipeCustomizationScreenProps> = ({ n
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <Text style={styles.backButtonText}>{'<- Back'}</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Customize Recipe</Text>
       </View>
@@ -190,7 +410,7 @@ const RecipeCustomizationScreen: React.FC<RecipeCustomizationScreenProps> = ({ n
               onPress={() => handleServingSizeChange(-1)}
               disabled={servingSize === 1}
             >
-              <Text style={styles.servingButtonText}>−</Text>
+              <Text style={styles.servingButtonText}>-</Text>
             </TouchableOpacity>
             
             <View style={styles.servingDisplay}>
@@ -208,6 +428,14 @@ const RecipeCustomizationScreen: React.FC<RecipeCustomizationScreenProps> = ({ n
               <Text style={styles.servingButtonText}>+</Text>
             </TouchableOpacity>
           </View>
+          {(loadingRecipe || scaling) && (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator size="small" color={COLORS.pastelOrange.main} />
+              <Text style={styles.loadingText}>
+                {loadingRecipe ? 'Loading recipe...' : 'Scaling ingredients...'}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Ingredient Control Panel */}
@@ -239,7 +467,7 @@ const RecipeCustomizationScreen: React.FC<RecipeCustomizationScreenProps> = ({ n
               >
                 {ingredient.selected && (
                   <View style={styles.checkboxChecked}>
-                    <Text style={styles.checkmark}>✓</Text>
+                    <Text style={styles.checkmark}>X</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -261,7 +489,7 @@ const RecipeCustomizationScreen: React.FC<RecipeCustomizationScreenProps> = ({ n
                   style={styles.localButton}
                   onPress={() => showLocalAlternative(ingredient)}
                 >
-                  <Text style={styles.localButtonText}>🌿 Local</Text>
+                  <Text style={styles.localButtonText}>Local</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -300,7 +528,7 @@ const RecipeCustomizationScreen: React.FC<RecipeCustomizationScreenProps> = ({ n
                   <Text style={styles.originalText}>Original:</Text>
                   <Text style={styles.originalName}>{selectedIngredient.name}</Text>
                   
-                  <Text style={styles.arrowText}>↓</Text>
+                  <Text style={styles.arrowText}>v</Text>
                   
                   <Text style={styles.localText}>Local Alternative:</Text>
                   <Text style={styles.localName}>
@@ -416,6 +644,16 @@ const styles = StyleSheet.create({
   servingDisplay: {
     alignItems: 'center',
     marginHorizontal: moderateScale(SPACING['2xl']),
+  },
+  loadingRow: {
+    marginTop: moderateScale(SPACING.sm),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
+  },
+  loadingText: {
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.xs),
+    color: COLORS.text.secondary,
   },
   servingNumber: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize['4xl']),

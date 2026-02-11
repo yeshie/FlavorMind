@@ -1,5 +1,5 @@
 // src/features/cookbook/screens/DigitalCookbookScreen.tsx
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,26 @@ import {
   StyleSheet,
   Image,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  ArrowLeft,
+  Bookmark,
+  BookOpen,
+  ChevronRight,
+  FlaskConical,
+  Globe,
+  MessageCircle,
+  Star,
+} from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
+import cookbookDashboardService, {
+  CookbookDashboardCookbook,
+  CookbookDashboardRecipe,
+} from '../../../services/api/cookbookDashboard.service';
 
 interface DigitalCookbookScreenProps {
   navigation: any;
@@ -50,93 +65,75 @@ interface Cookbook {
 
 const DigitalCookbookScreen: React.FC<DigitalCookbookScreenProps> = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'published' | 'saved'>('published');
+  const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>([]);
+  const [publishedRecipes, setPublishedRecipes] = useState<PublishedRecipe[]>([]);
+  const [draftRecipes, setDraftRecipes] = useState<DraftRecipe[]>([]);
+  const [publishedCookbooks, setPublishedCookbooks] = useState<Cookbook[]>([]);
+  const [savedCookbooks, setSavedCookbooks] = useState<Cookbook[]>([]);
 
-  // Mock Data
-  const savedRecipes: SavedRecipe[] = [
-    {
-      id: '1',
-      dishName: 'Coconut Fish Curry',
-      dishImage: 'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=800',
-      creator: 'Chef Rohan',
-      rating: 4.8,
-    },
-    {
-      id: '2',
-      dishName: 'Chicken Kottu',
-      dishImage: 'https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=800',
-      creator: 'Amara Kitchen',
-      rating: 4.9,
-    },
-    {
-      id: '3',
-      dishName: 'Vegetable Biryani',
-      dishImage: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=800',
-      creator: 'Spice Masters',
-      rating: 4.7,
-    },
-  ];
+  const mapDashboardRecipe = (recipe: CookbookDashboardRecipe): SavedRecipe => ({
+    id: recipe.id,
+    dishName: recipe.dishName || recipe.title || 'Recipe',
+    dishImage: recipe.imageUrl || recipe.image,
+    creator: recipe.creator || recipe.author || 'Unknown',
+    rating: recipe.rating,
+  });
 
-  const publishedRecipes: PublishedRecipe[] = [
-    {
-      id: '1',
-      dishName: 'My Special Pol Sambol',
-      dishImage: 'https://images.unsplash.com/photo-1596040033229-a0b9ce3f9c41?w=800',
-      rating: 4.9,
-      feedbackCount: 127,
-    },
-    {
-      id: '2',
-      dishName: 'Traditional Dhal Curry',
-      dishImage: 'https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=800',
-      rating: 4.8,
-      feedbackCount: 89,
-    },
-  ];
+  const mapPublishedRecipe = (recipe: CookbookDashboardRecipe): PublishedRecipe => ({
+    id: recipe.id,
+    dishName: recipe.dishName || recipe.title || 'Recipe',
+    dishImage: recipe.imageUrl || recipe.image,
+    rating: recipe.rating,
+    feedbackCount: recipe.feedbackCount,
+  });
 
-  const draftRecipes: DraftRecipe[] = [
-    {
-      id: '1',
-      dishName: 'Experimental Fusion Curry',
-      dishImage: 'https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=800',
-    },
-    {
-      id: '2',
-      dishName: 'Grandmother\'s Secret Recipe',
-      dishImage: 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=800',
-    },
-  ];
+  const mapDraftRecipe = (recipe: CookbookDashboardRecipe): DraftRecipe => ({
+    id: recipe.id,
+    dishName: recipe.dishName || recipe.title || 'Draft Recipe',
+    dishImage: recipe.imageUrl || recipe.image,
+  });
 
-  const publishedCookbooks: Cookbook[] = [
-    {
-      id: '1',
-      title: 'My Sri Lankan Favorites',
-      coverImage: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600',
-      recipeCount: 15,
-      isPublished: true,
-    },
-  ];
+  const mapCookbook = (cookbook: CookbookDashboardCookbook): Cookbook => ({
+    id: cookbook.id,
+    title: cookbook.title,
+    coverImage: cookbook.coverImageUrl || cookbook.coverImage,
+    recipeCount: cookbook.recipeCount ?? cookbook.recipesCount ?? 0,
+    isPublished: cookbook.isPublished,
+  });
 
-  const savedCookbooks: Cookbook[] = [
-    {
-      id: '1',
-      title: 'Flavors of Sri Lanka',
-      coverImage: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600',
-      recipeCount: 25,
-      isPublished: false,
-    },
-    {
-      id: '2',
-      title: 'Quick & Easy Lankan',
-      coverImage: 'https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=600',
-      recipeCount: 20,
-      isPublished: false,
-    },
-  ];
+  const loadDashboard = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
+    try {
+      const response = await cookbookDashboardService.getDashboard();
+      const data = response.data || {};
+
+      setSavedRecipes((data.savedRecipes || []).map(mapDashboardRecipe));
+      setPublishedRecipes((data.publishedRecipes || []).map(mapPublishedRecipe));
+      setDraftRecipes((data.draftRecipes || []).map(mapDraftRecipe));
+      setPublishedCookbooks((data.publishedCookbooks || []).map(mapCookbook));
+      setSavedCookbooks((data.savedCookbooks || []).map(mapCookbook));
+    } catch (error) {
+      console.error('Cookbook dashboard load error:', error);
+      setSavedRecipes([]);
+      setPublishedRecipes([]);
+      setDraftRecipes([]);
+      setPublishedCookbooks([]);
+      setSavedCookbooks([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   const handleRefresh = async () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 2000);
+    await loadDashboard(true);
   };
 
   const handleSavedRecipePress = (recipe: SavedRecipe) => {
@@ -163,6 +160,10 @@ const DigitalCookbookScreen: React.FC<DigitalCookbookScreenProps> = ({ navigatio
     navigation.navigate('SelectRecipesPage');
   };
 
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
+
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       {/* Header */}
@@ -171,7 +172,10 @@ const DigitalCookbookScreen: React.FC<DigitalCookbookScreenProps> = ({ navigatio
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <View style={styles.backButtonContent}>
+            <ArrowLeft size={scaleFontSize(16)} color={COLORS.pastelOrange.dark} />
+            <Text style={styles.backButtonText}>Back</Text>
+          </View>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Digital Cookbook</Text>
       </View>
@@ -183,10 +187,22 @@ const DigitalCookbookScreen: React.FC<DigitalCookbookScreenProps> = ({ navigatio
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
       >
+        {loading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color={COLORS.pastelOrange.main} />
+            <Text style={styles.loadingText}>Loading your cookbook...</Text>
+          </View>
+        )}
+
         {/* Saved Recipes Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionIcon}>🗂</Text>
+            <Bookmark
+              size={scaleFontSize(22)}
+              color={COLORS.pastelOrange.main}
+              strokeWidth={2}
+              style={styles.sectionIcon}
+            />
             <View style={styles.sectionTitleContainer}>
               <Text style={styles.sectionTitle}>Saved Recipes</Text>
               <Text style={styles.sectionCount}>{savedRecipes.length} recipes</Text>
@@ -198,81 +214,134 @@ const DigitalCookbookScreen: React.FC<DigitalCookbookScreenProps> = ({ navigatio
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.horizontalScroll}
           >
-            {savedRecipes.map((recipe) => (
-              <TouchableOpacity
-                key={recipe.id}
-                style={styles.savedRecipeCard}
-                onPress={() => handleSavedRecipePress(recipe)}
-                activeOpacity={0.9}
-              >
-                <Image
-                  source={{ uri: recipe.dishImage }}
-                  style={styles.savedRecipeImage}
-                  resizeMode="cover"
-                />
-                <View style={styles.savedRecipeInfo}>
-                  <Text style={styles.savedRecipeName} numberOfLines={2}>
-                    {recipe.dishName}
-                  </Text>
-                  <Text style={styles.savedRecipeCreator} numberOfLines={1}>
-                    by {recipe.creator}
-                  </Text>
-                  <View style={styles.ratingRow}>
-                    <Text style={styles.starIcon}>⭐</Text>
-                    <Text style={styles.ratingText}>{recipe.rating}</Text>
+            {savedRecipes.length > 0 ? (
+              savedRecipes.map((recipe) => (
+                <TouchableOpacity
+                  key={recipe.id}
+                  style={styles.savedRecipeCard}
+                  onPress={() => handleSavedRecipePress(recipe)}
+                  activeOpacity={0.9}
+                >
+                  <Image
+                    source={
+                      recipe.dishImage
+                        ? { uri: recipe.dishImage }
+                        : require('../../../assets/icon.png')
+                    }
+                    style={styles.savedRecipeImage}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.savedRecipeInfo}>
+                    <Text style={styles.savedRecipeName} numberOfLines={2}>
+                      {recipe.dishName}
+                    </Text>
+                    <Text style={styles.savedRecipeCreator} numberOfLines={1}>
+                      by {recipe.creator || 'Unknown'}
+                    </Text>
+                    <View style={styles.ratingRow}>
+                      <Star
+                        size={scaleFontSize(14)}
+                        color={COLORS.pastelOrange.main}
+                        strokeWidth={2}
+                        style={styles.ratingIcon}
+                      />
+                      <Text style={styles.ratingText}>
+                        {recipe.rating !== undefined ? recipe.rating.toFixed(1) : '--'}
+                      </Text>
+                    </View>
                   </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              !loading && (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyStateText}>No saved recipes yet.</Text>
                 </View>
-              </TouchableOpacity>
-            ))}
+              )
+            )}
           </ScrollView>
         </View>
 
         {/* Published Recipes Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionIcon}>🌍</Text>
+            <Globe
+              size={scaleFontSize(22)}
+              color={COLORS.pastelGreen.main}
+              strokeWidth={2}
+              style={styles.sectionIcon}
+            />
             <View style={styles.sectionTitleContainer}>
               <Text style={styles.sectionTitle}>Published Recipes</Text>
               <Text style={styles.sectionCount}>{publishedRecipes.length} recipes</Text>
             </View>
           </View>
 
-          {publishedRecipes.map((recipe) => (
-            <TouchableOpacity
-              key={recipe.id}
-              style={styles.publishedRecipeCard}
-              onPress={() => handlePublishedRecipePress(recipe)}
-              activeOpacity={0.9}
-            >
-              <Image
-                source={{ uri: recipe.dishImage }}
-                style={styles.publishedRecipeImage}
-                resizeMode="cover"
-              />
-              <View style={styles.publishedRecipeInfo}>
-                <Text style={styles.publishedRecipeName} numberOfLines={2}>
-                  {recipe.dishName}
-                </Text>
-                <View style={styles.publishedRecipeStats}>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statIcon}>⭐</Text>
-                    <Text style={styles.statText}>{recipe.rating}</Text>
-                  </View>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statIcon}>💬</Text>
-                    <Text style={styles.statText}>{recipe.feedbackCount}</Text>
+          {publishedRecipes.length > 0 ? (
+            publishedRecipes.map((recipe) => (
+              <TouchableOpacity
+                key={recipe.id}
+                style={styles.publishedRecipeCard}
+                onPress={() => handlePublishedRecipePress(recipe)}
+                activeOpacity={0.9}
+              >
+                <Image
+                  source={
+                    recipe.dishImage
+                      ? { uri: recipe.dishImage }
+                      : require('../../../assets/icon.png')
+                  }
+                  style={styles.publishedRecipeImage}
+                  resizeMode="cover"
+                />
+                <View style={styles.publishedRecipeInfo}>
+                  <Text style={styles.publishedRecipeName} numberOfLines={2}>
+                    {recipe.dishName}
+                  </Text>
+                  <View style={styles.publishedRecipeStats}>
+                    <View style={styles.statItem}>
+                      <Star
+                        size={scaleFontSize(14)}
+                        color={COLORS.pastelOrange.main}
+                        strokeWidth={2}
+                        style={styles.statIcon}
+                      />
+                      <Text style={styles.statText}>
+                        {recipe.rating !== undefined ? recipe.rating.toFixed(1) : '--'}
+                      </Text>
+                    </View>
+                    <View style={styles.statItem}>
+                      <MessageCircle
+                        size={scaleFontSize(14)}
+                        color={COLORS.text.secondary}
+                        strokeWidth={2}
+                        style={styles.statIcon}
+                      />
+                      <Text style={styles.statText}>{recipe.feedbackCount ?? '--'}</Text>
+                    </View>
                   </View>
                 </View>
+                <ChevronRight size={scaleFontSize(20)} color={COLORS.text.tertiary} style={styles.arrowIcon} />
+              </TouchableOpacity>
+            ))
+          ) : (
+            !loading && (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No published recipes yet.</Text>
               </View>
-              <Text style={styles.arrowIcon}>›</Text>
-            </TouchableOpacity>
-          ))}
+            )
+          )}
         </View>
 
         {/* Draft Recipes Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionIcon}>🧪</Text>
+            <FlaskConical
+              size={scaleFontSize(22)}
+              color={COLORS.pastelYellow.main}
+              strokeWidth={2}
+              style={styles.sectionIcon}
+            />
             <View style={styles.sectionTitleContainer}>
               <Text style={styles.sectionTitle}>Unpublished (Drafts)</Text>
               <Text style={styles.sectionCount}>{draftRecipes.length} drafts</Text>
@@ -284,35 +353,52 @@ const DigitalCookbookScreen: React.FC<DigitalCookbookScreenProps> = ({ navigatio
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.horizontalScroll}
           >
-            {draftRecipes.map((recipe) => (
-              <TouchableOpacity
-                key={recipe.id}
-                style={styles.draftRecipeCard}
-                onPress={() => handleDraftRecipePress(recipe)}
-                activeOpacity={0.9}
-              >
-                <Image
-                  source={{ uri: recipe.dishImage }}
-                  style={styles.draftRecipeImage}
-                  resizeMode="cover"
-                />
-                <View style={styles.draftBadge}>
-                  <Text style={styles.draftBadgeText}>DRAFT</Text>
+            {draftRecipes.length > 0 ? (
+              draftRecipes.map((recipe) => (
+                <TouchableOpacity
+                  key={recipe.id}
+                  style={styles.draftRecipeCard}
+                  onPress={() => handleDraftRecipePress(recipe)}
+                  activeOpacity={0.9}
+                >
+                  <Image
+                    source={
+                      recipe.dishImage
+                        ? { uri: recipe.dishImage }
+                        : require('../../../assets/icon.png')
+                    }
+                    style={styles.draftRecipeImage}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.draftBadge}>
+                    <Text style={styles.draftBadgeText}>DRAFT</Text>
+                  </View>
+                  <View style={styles.draftRecipeInfo}>
+                    <Text style={styles.draftRecipeName} numberOfLines={2}>
+                      {recipe.dishName}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              !loading && (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyStateText}>No draft recipes yet.</Text>
                 </View>
-                <View style={styles.draftRecipeInfo}>
-                  <Text style={styles.draftRecipeName} numberOfLines={2}>
-                    {recipe.dishName}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+              )
+            )}
           </ScrollView>
         </View>
 
         {/* My Cookbooks Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionIcon}>📚</Text>
+            <BookOpen
+              size={scaleFontSize(22)}
+              color={COLORS.secondary.main}
+              strokeWidth={2}
+              style={styles.sectionIcon}
+            />
             <View style={styles.sectionTitleContainer}>
               <Text style={styles.sectionTitle}>My Cookbooks</Text>
             </View>
@@ -340,29 +426,45 @@ const DigitalCookbookScreen: React.FC<DigitalCookbookScreenProps> = ({ navigatio
 
           {/* Cookbook List */}
           <View style={styles.cookbookList}>
-            {(activeTab === 'published' ? publishedCookbooks : savedCookbooks).map((cookbook) => (
-              <TouchableOpacity
-                key={cookbook.id}
-                style={styles.cookbookCard}
-                onPress={() => handleCookbookPress(cookbook)}
-                activeOpacity={0.9}
-              >
-                <Image
-                  source={{ uri: cookbook.coverImage }}
-                  style={styles.cookbookCover}
-                  resizeMode="cover"
-                />
-                <View style={styles.cookbookInfo}>
-                  <Text style={styles.cookbookTitle} numberOfLines={2}>
-                    {cookbook.title}
-                  </Text>
-                  <Text style={styles.cookbookCount}>
-                    {cookbook.recipeCount} recipes
+            {(activeTab === 'published' ? publishedCookbooks : savedCookbooks).length > 0 ? (
+              (activeTab === 'published' ? publishedCookbooks : savedCookbooks).map((cookbook) => (
+                <TouchableOpacity
+                  key={cookbook.id}
+                  style={styles.cookbookCard}
+                  onPress={() => handleCookbookPress(cookbook)}
+                  activeOpacity={0.9}
+                >
+                  <Image
+                  source={
+                    cookbook.coverImage
+                      ? { uri: cookbook.coverImage }
+                      : require('../../../assets/icon.png')
+                  }
+                    style={styles.cookbookCover}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.cookbookInfo}>
+                    <Text style={styles.cookbookTitle} numberOfLines={2}>
+                      {cookbook.title}
+                    </Text>
+                    <Text style={styles.cookbookCount}>
+                      {cookbook.recipeCount ?? 0} recipes
+                    </Text>
+                  </View>
+                  <ChevronRight size={scaleFontSize(20)} color={COLORS.text.tertiary} style={styles.arrowIcon} />
+                </TouchableOpacity>
+              ))
+            ) : (
+              !loading && (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyStateText}>
+                    {activeTab === 'published'
+                      ? 'No published cookbooks yet.'
+                      : 'No saved cookbooks yet.'}
                   </Text>
                 </View>
-                <Text style={styles.arrowIcon}>›</Text>
-              </TouchableOpacity>
-            ))}
+              )
+            )}
           </View>
 
           {/* Create Cookbook Button */}
@@ -374,7 +476,7 @@ const DigitalCookbookScreen: React.FC<DigitalCookbookScreenProps> = ({ navigatio
               onPress={handleCreateCookbook}
               icon={require('../../../assets/icons/plus.png')}
             >
-              ✨ Create Your Cookbook
+              Create Your Cookbook
             </Button>
           </View>
         </View>
@@ -397,6 +499,11 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginBottom: moderateScale(SPACING.md),
+  },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
   },
   backButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
@@ -426,7 +533,6 @@ const styles = StyleSheet.create({
     marginBottom: moderateScale(SPACING.md),
   },
   sectionIcon: {
-    fontSize: scaleFontSize(28),
     marginRight: moderateScale(SPACING.sm),
   },
   sectionTitleContainer: {
@@ -476,8 +582,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  starIcon: {
-    fontSize: scaleFontSize(14),
+  ratingIcon: {
     marginRight: moderateScale(4),
   },
   ratingText: {
@@ -518,7 +623,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statIcon: {
-    fontSize: scaleFontSize(14),
     marginRight: moderateScale(4),
   },
   statText: {
@@ -527,8 +631,6 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.medium,
   },
   arrowIcon: {
-    fontSize: scaleFontSize(32),
-    color: COLORS.text.tertiary,
     paddingRight: moderateScale(SPACING.md),
   },
   draftRecipeCard: {
@@ -632,6 +734,24 @@ const styles = StyleSheet.create({
   bottomSpacer: {
     height: moderateScale(SPACING['4xl']),
   },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: moderateScale(SPACING.base),
+    paddingVertical: moderateScale(SPACING.md),
+  },
+  loadingText: {
+    marginLeft: moderateScale(SPACING.sm),
+    color: COLORS.text.secondary,
+  },
+  emptyState: {
+    paddingHorizontal: moderateScale(SPACING.base),
+    paddingVertical: moderateScale(SPACING.sm),
+  },
+  emptyStateText: {
+    color: COLORS.text.secondary,
+  },
 });
 
 export default DigitalCookbookScreen;
+

@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ArrowLeft } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Input from '../../../common/components/Input/Input';
@@ -81,7 +82,10 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({ navigation 
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.backButtonText}>← Back</Text>
+            <View style={styles.backButtonContent}>
+              <ArrowLeft size={scaleFontSize(16)} color={COLORS.pastelOrange.main} />
+              <Text style={styles.backButtonText}>Back</Text>
+            </View>
           </TouchableOpacity>
 
           <View style={styles.header}>
@@ -151,6 +155,11 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginBottom: moderateScale(SPACING.lg),
+  },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
   },
   backButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),

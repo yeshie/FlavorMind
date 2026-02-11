@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ArrowLeft, Camera, Lightbulb } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
@@ -91,7 +92,10 @@ const CookbookCoverSetupScreen: React.FC<CookbookCoverSetupScreenProps> = ({
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.backButtonText}>← Back</Text>
+            <View style={styles.backButtonContent}>
+              <ArrowLeft size={scaleFontSize(16)} color={COLORS.pastelOrange.dark} />
+              <Text style={styles.backButtonText}>Back</Text>
+            </View>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Cookbook Cover Setup</Text>
         </View>
@@ -139,7 +143,7 @@ const CookbookCoverSetupScreen: React.FC<CookbookCoverSetupScreenProps> = ({
                 style={styles.uploadButton}
                 onPress={handleUploadCoverImage}
               >
-                <Text style={styles.uploadIcon}>📷</Text>
+                <Camera size={scaleFontSize(20)} color={COLORS.text.secondary} strokeWidth={2} style={styles.uploadIcon} />
                 <Text style={styles.uploadText}>Upload Cover Image</Text>
               </TouchableOpacity>
             </View>
@@ -198,7 +202,7 @@ const CookbookCoverSetupScreen: React.FC<CookbookCoverSetupScreenProps> = ({
                 style={styles.uploadButton}
                 onPress={handleUploadIntroImage}
               >
-                <Text style={styles.uploadIcon}>📷</Text>
+                <Camera size={scaleFontSize(20)} color={COLORS.text.secondary} strokeWidth={2} style={styles.uploadIcon} />
                 <Text style={styles.uploadText}>Upload Introduction Image</Text>
               </TouchableOpacity>
             </View>
@@ -233,14 +237,14 @@ const CookbookCoverSetupScreen: React.FC<CookbookCoverSetupScreenProps> = ({
                 style={styles.uploadButton}
                 onPress={handleUploadThankYouImage}
               >
-                <Text style={styles.uploadIcon}>📷</Text>
+                <Camera size={scaleFontSize(20)} color={COLORS.text.secondary} strokeWidth={2} style={styles.uploadIcon} />
                 <Text style={styles.uploadText}>Upload Thank You Image</Text>
               </TouchableOpacity>
             </View>
 
             {/* Info Box */}
             <View style={styles.infoBox}>
-              <Text style={styles.infoIcon}>💡</Text>
+              <Lightbulb size={scaleFontSize(22)} color={COLORS.pastelYellow.main} strokeWidth={2} style={styles.infoIcon} />
               <View style={styles.infoContent}>
                 <Text style={styles.infoTitle}>Pro Tip</Text>
                 <Text style={styles.infoText}>
@@ -261,7 +265,7 @@ const CookbookCoverSetupScreen: React.FC<CookbookCoverSetupScreenProps> = ({
             fullWidth
             onPress={handleNext}
           >
-            Next: Preview & Publish →
+            Next: Preview & Publish
           </Button>
         </View>
       </KeyboardAvoidingView>
@@ -284,6 +288,11 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginBottom: moderateScale(SPACING.md),
+  },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
   },
   backButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
@@ -344,7 +353,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border.main,
   },
   uploadIcon: {
-    fontSize: scaleFontSize(24),
     marginRight: moderateScale(SPACING.sm),
   },
   uploadText: {
@@ -373,7 +381,6 @@ const styles = StyleSheet.create({
     marginTop: moderateScale(SPACING.lg),
   },
   infoIcon: {
-    fontSize: scaleFontSize(32),
     marginRight: moderateScale(SPACING.md),
   },
   infoContent: {

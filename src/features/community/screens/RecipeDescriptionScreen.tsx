@@ -9,6 +9,20 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  ArrowLeft,
+  Bookmark,
+  Clock,
+  Eye,
+  Flame,
+  Lightbulb,
+  MapPin,
+  MessageCircle,
+  Share2,
+  Sprout,
+  Star,
+  Tag,
+} from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
@@ -29,10 +43,10 @@ const RecipeDescriptionScreen: React.FC<RecipeDescriptionScreenProps> = ({
   const { recipe } = route.params;
 
   const highlights = [
-    '🔥 Perfect balance of sweet and spicy',
-    '🥥 Fresh coconut adds authentic flavor',
-    '⏱️ Quick and easy to prepare',
-    '🌿 Uses locally available ingredients',
+    { icon: Flame, color: COLORS.pastelOrange.main, text: 'Perfect balance of sweet and spicy' },
+    { icon: Sprout, color: COLORS.pastelGreen.main, text: 'Fresh coconut adds authentic flavor' },
+    { icon: Clock, color: COLORS.text.secondary, text: 'Quick and easy to prepare' },
+    { icon: MapPin, color: COLORS.pastelYellow.main, text: 'Uses locally available ingredients' },
   ];
 
   const tips = [
@@ -47,6 +61,7 @@ const RecipeDescriptionScreen: React.FC<RecipeDescriptionScreenProps> = ({
     navigation.navigate('RecipeCustomization', {
       dishId: recipe.id,
       dishName: recipe.title,
+      recipe,
       fromCommunity: true,
     });
   };
@@ -59,14 +74,17 @@ const RecipeDescriptionScreen: React.FC<RecipeDescriptionScreenProps> = ({
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <View style={styles.backButtonContent}>
+            <ArrowLeft size={scaleFontSize(16)} color={COLORS.pastelOrange.dark} />
+            <Text style={styles.backButtonText}>Back</Text>
+          </View>
         </TouchableOpacity>
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.iconButton}>
-            <Text style={styles.iconEmoji}>🔖</Text>
+            <Bookmark size={scaleFontSize(18)} color={COLORS.text.primary} strokeWidth={2} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.iconButton}>
-            <Text style={styles.iconEmoji}>📤</Text>
+            <Share2 size={scaleFontSize(18)} color={COLORS.text.primary} strokeWidth={2} />
           </TouchableOpacity>
         </View>
       </View>
@@ -103,17 +121,17 @@ const RecipeDescriptionScreen: React.FC<RecipeDescriptionScreenProps> = ({
             {/* Stats */}
             <View style={styles.statsRow}>
               <View style={styles.statBox}>
-                <Text style={styles.statIcon}>⭐</Text>
+                <Star size={scaleFontSize(20)} color={COLORS.pastelOrange.main} strokeWidth={2} style={styles.statIcon} />
                 <Text style={styles.statValue}>{recipe.rating}</Text>
                 <Text style={styles.statLabel}>Rating</Text>
               </View>
               <View style={styles.statBox}>
-                <Text style={styles.statIcon}>💬</Text>
+                <MessageCircle size={scaleFontSize(20)} color={COLORS.text.secondary} strokeWidth={2} style={styles.statIcon} />
                 <Text style={styles.statValue}>{recipe.comments}</Text>
                 <Text style={styles.statLabel}>Comments</Text>
               </View>
               <View style={styles.statBox}>
-                <Text style={styles.statIcon}>👁️</Text>
+                <Eye size={scaleFontSize(20)} color={COLORS.text.secondary} strokeWidth={2} style={styles.statIcon} />
                 <Text style={styles.statValue}>2.4k</Text>
                 <Text style={styles.statLabel}>Views</Text>
               </View>
@@ -137,10 +155,15 @@ const RecipeDescriptionScreen: React.FC<RecipeDescriptionScreenProps> = ({
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>What Makes It Special</Text>
             <View style={styles.highlightsList}>
-              {highlights.map((highlight, index) => (
+              {highlights.map(({ icon: Icon, color, text }, index) => (
                 <View key={index} style={styles.highlightItem}>
-                  <View style={styles.highlightDot} />
-                  <Text style={styles.highlightText}>{highlight}</Text>
+                  <Icon
+                    size={scaleFontSize(18)}
+                    color={color}
+                    strokeWidth={2}
+                    style={styles.highlightIcon}
+                  />
+                  <Text style={styles.highlightText}>{text}</Text>
                 </View>
               ))}
             </View>
@@ -148,7 +171,10 @@ const RecipeDescriptionScreen: React.FC<RecipeDescriptionScreenProps> = ({
 
           {/* Tips Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>💡 Tips for Perfect Results</Text>
+            <View style={styles.sectionTitleRow}>
+              <Lightbulb size={scaleFontSize(18)} color={COLORS.pastelYellow.main} strokeWidth={2} />
+              <Text style={styles.sectionTitle}>Tips for Perfect Results</Text>
+            </View>
             <View style={styles.tipsList}>
               {tips.map((tip, index) => (
                 <View key={index} style={styles.tipCard}>
@@ -164,7 +190,10 @@ const RecipeDescriptionScreen: React.FC<RecipeDescriptionScreenProps> = ({
           {/* Category Badge */}
           <View style={styles.categorySection}>
             <View style={styles.categoryBadge}>
-              <Text style={styles.categoryText}>🏷️ {recipe.category}</Text>
+              <View style={styles.categoryRow}>
+                <Tag size={scaleFontSize(16)} color={COLORS.pastelGreen.dark} strokeWidth={2} />
+                <Text style={styles.categoryText}>{recipe.category}</Text>
+              </View>
             </View>
           </View>
         </View>
@@ -181,7 +210,7 @@ const RecipeDescriptionScreen: React.FC<RecipeDescriptionScreenProps> = ({
           onPress={handleRecreateRecipe}
           icon={require('../../../assets/icons/sparkle.png')}
         >
-          🍳 Recreate This Recipe
+          Recreate This Recipe
         </Button>
       </View>
     </SafeAreaView>
@@ -207,6 +236,11 @@ const styles = StyleSheet.create({
   backButton: {
     padding: moderateScale(SPACING.xs),
   },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
+  },
   backButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
     color: COLORS.pastelOrange.dark,
@@ -223,9 +257,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background.white,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  iconEmoji: {
-    fontSize: scaleFontSize(20),
   },
   scrollView: {
     flex: 1,
@@ -286,7 +317,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statIcon: {
-    fontSize: scaleFontSize(24),
     marginBottom: moderateScale(SPACING.xs),
   },
   statValue: {
@@ -308,6 +338,12 @@ const styles = StyleSheet.create({
     color: COLORS.text.primary,
     marginBottom: moderateScale(SPACING.md),
   },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
+    marginBottom: moderateScale(SPACING.md),
+  },
   descriptionText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
     color: COLORS.text.secondary,
@@ -326,11 +362,7 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: COLORS.pastelYellow.main,
   },
-  highlightDot: {
-    width: moderateScale(8),
-    height: moderateScale(8),
-    borderRadius: moderateScale(4),
-    backgroundColor: COLORS.pastelOrange.main,
+  highlightIcon: {
     marginRight: moderateScale(SPACING.md),
   },
   highlightText: {
@@ -380,6 +412,11 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.full,
     borderWidth: 2,
     borderColor: COLORS.pastelGreen.main,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
   },
   categoryText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),

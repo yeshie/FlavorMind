@@ -1,6 +1,15 @@
 // src/services/firebase/authService.ts - Complete Firebase Auth
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile,
+  sendEmailVerification as firebaseSendEmailVerification,
+  signOut as firebaseSignOut,
+  User,
+} from 'firebase/auth';
+import { auth, hasFirebaseConfig } from './firebase';
 
 const API_BASE_URL = __DEV__ 
   ? 'http://192.168.8.218:5000/api/v1'
@@ -11,6 +20,44 @@ const apiClient = axios.create({
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
 });
+
+const requireFirebaseAuth = () => {
+  if (!hasFirebaseConfig || !auth) {
+    throw new Error(
+      'Firebase config missing. Set EXPO_PUBLIC_FIREBASE_* env vars to enable Firebase.'
+    );
+  }
+  return auth;
+};
+
+const mapFirebaseUser = (user: User): AuthUser => ({
+  uid: user.uid,
+  email: user.email || '',
+  displayName: user.displayName || user.email?.split('@')[0] || 'User',
+  photoURL: user.photoURL || undefined,
+  emailVerified: user.emailVerified ?? false,
+});
+
+const formatAuthError = (error: any): string => {
+  const code = error?.code;
+  if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential' || code === 'auth/invalid-login-credentials') {
+    return 'Invalid email or password';
+  }
+  if (code === 'auth/email-already-in-use') {
+    return 'Email already registered';
+  }
+  if (code === 'auth/weak-password') {
+    return 'Password must be at least 6 characters';
+  }
+  if (code === 'auth/invalid-email') {
+    return 'Please enter a valid email address';
+  }
+  if (code === 'auth/network-request-failed') {
+    return 'Network error. Please try again.';
+  }
+
+  return error?.response?.data?.message || error?.message || 'Authentication failed';
+};
 
 export interface AuthUser {
   uid: string;
@@ -37,30 +84,41 @@ export const registerWithEmail = async (
   password: string
 ): Promise<AuthResponse> => {
   try {
-    const response = await apiClient.post('/auth/register', {
-      name,
-      email,
-      password,
-    });
+    const firebaseAuth = requireFirebaseAuth();
+    const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
 
-    if (response.data.success) {
-      const { token, user } = response.data.data;
-      await AsyncStorage.setItem('authToken', token);
-      await AsyncStorage.setItem('userData', JSON.stringify(user));
-      
-      return {
-        success: true,
-        message: 'Registration successful',
-        data: { token, user },
-      };
+    const trimmedName = name.trim();
+    if (trimmedName) {
+      await updateProfile(credential.user, { displayName: trimmedName });
     }
 
-    return { success: false, message: response.data.message };
+    try {
+      await firebaseSendEmailVerification(credential.user);
+    } catch (verificationError) {
+      console.warn('Email verification not sent:', verificationError);
+    }
+
+    const idToken = await credential.user.getIdToken();
+    await apiClient.post('/auth/login', { idToken });
+
+    await firebaseSignOut(firebaseAuth);
+
+    return {
+      success: true,
+      message: 'Registration successful. Please login.',
+    };
   } catch (error: any) {
     console.error('Register error:', error);
+    try {
+      if (auth?.currentUser) {
+        await firebaseSignOut(auth);
+      }
+    } catch (signOutError) {
+      console.warn('Firebase sign-out failed after register error:', signOutError);
+    }
     return {
       success: false,
-      message: error.response?.data?.message || 'Registration failed',
+      message: formatAuthError(error),
     };
   }
 };
@@ -71,35 +129,51 @@ export const loginWithEmail = async (
   rememberMe: boolean = false
 ): Promise<AuthResponse> => {
   try {
-    const response = await apiClient.post('/auth/login', {
-      email,
-      password,
-    });
+    const firebaseAuth = requireFirebaseAuth();
+    const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
+    const idToken = await credential.user.getIdToken();
+    const refreshToken = credential.user.refreshToken;
 
-    if (response.data.success) {
-      const { token, user } = response.data.data;
-      
-      await AsyncStorage.setItem('authToken', token);
-      await AsyncStorage.setItem('userData', JSON.stringify(user));
-      
-      if (rememberMe) {
-        await AsyncStorage.setItem('rememberMe', 'true');
-        await AsyncStorage.setItem('userEmail', email);
-      }
+    const response = await apiClient.post('/auth/login', { idToken });
 
-      return {
-        success: true,
-        message: 'Login successful',
-        data: { token, user },
-      };
+    if (!response.data?.success) {
+      await firebaseSignOut(firebaseAuth);
+      return { success: false, message: response.data?.message || 'Login failed' };
     }
 
-    return { success: false, message: response.data.message };
+    const user = response.data?.data?.user || mapFirebaseUser(credential.user);
+
+    await AsyncStorage.setItem('authToken', idToken);
+    if (refreshToken) {
+      await AsyncStorage.setItem('refreshToken', refreshToken);
+    }
+    await AsyncStorage.setItem('userData', JSON.stringify(user));
+
+    if (rememberMe) {
+      await AsyncStorage.setItem('rememberMe', 'true');
+      await AsyncStorage.setItem('userEmail', email);
+    } else {
+      await AsyncStorage.removeItem('rememberMe');
+      await AsyncStorage.removeItem('userEmail');
+    }
+
+    return {
+      success: true,
+      message: response.data?.message || 'Login successful',
+      data: { token: idToken, user },
+    };
   } catch (error: any) {
     console.error('Login error:', error);
+    try {
+      if (auth?.currentUser) {
+        await firebaseSignOut(auth);
+      }
+    } catch (signOutError) {
+      console.warn('Firebase sign-out failed after login error:', signOutError);
+    }
     return {
       success: false,
-      message: error.response?.data?.message || 'Login failed',
+      message: formatAuthError(error),
     };
   }
 };
@@ -175,6 +249,9 @@ export const verifyOTP = async (
     if (response.data.success) {
       const { token, user } = response.data.data;
       await AsyncStorage.setItem('authToken', token);
+      if (response.data.data?.refreshToken) {
+        await AsyncStorage.setItem('refreshToken', response.data.data.refreshToken);
+      }
       await AsyncStorage.setItem('userData', JSON.stringify(user));
       
       return {
@@ -242,10 +319,18 @@ export const getRememberedEmail = async (): Promise<string | null> => {
 export const logout = async (): Promise<void> => {
   try {
     const rememberMe = await AsyncStorage.getItem('rememberMe');
-    const userEmail = await AsyncStorage.getItem('userEmail');
     
     await AsyncStorage.removeItem('authToken');
+    await AsyncStorage.removeItem('refreshToken');
     await AsyncStorage.removeItem('userData');
+
+    if (auth) {
+      try {
+        await firebaseSignOut(auth);
+      } catch (signOutError) {
+        console.warn('Firebase sign-out error:', signOutError);
+      }
+    }
     
     // Keep remember me data if enabled
     if (rememberMe !== 'true') {

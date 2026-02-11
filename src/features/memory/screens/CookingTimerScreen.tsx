@@ -20,14 +20,17 @@ interface CookingTimerScreenProps {
       dishName: string;
       totalCookTime: number;
       servingSize: number;
+      recipeId?: string;
     };
   };
 }
 
 const CookingTimerScreen: React.FC<CookingTimerScreenProps> = ({ navigation, route }) => {
-  const { dishName, totalCookTime, servingSize } = route.params;
+  const { dishName, totalCookTime, servingSize, recipeId } = route.params;
+  const safeTotalCookTime =
+    Number.isFinite(totalCookTime) && totalCookTime > 0 ? totalCookTime : 20;
 
-  const [minutes, setMinutes] = useState(totalCookTime);
+  const [minutes, setMinutes] = useState(safeTotalCookTime);
   const [seconds, setSeconds] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -57,14 +60,15 @@ const CookingTimerScreen: React.FC<CookingTimerScreenProps> = ({ navigation, rou
 
   const handleTimerComplete = () => {
     Alert.alert(
-      '🎉 Your Dish is Ready!',
+      'Your Dish is Ready!',
       `${dishName} is now complete. Enjoy your meal!`,
       [
         {
           text: 'Done',
-          onPress: () => navigation.navigate('Done', {
+          onPress: () => navigation.navigate('Feedback', {
             dishName,
             servingSize,
+            recipeId,
           }),
         },
       ],
@@ -97,7 +101,7 @@ const CookingTimerScreen: React.FC<CookingTimerScreenProps> = ({ navigation, rou
           onPress: () => {
             setIsRunning(false);
             setIsPaused(false);
-            setMinutes(totalCookTime);
+            setMinutes(safeTotalCookTime);
             setSeconds(0);
           },
         },
@@ -116,7 +120,7 @@ const CookingTimerScreen: React.FC<CookingTimerScreenProps> = ({ navigation, rou
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
-  const progress = 1 - ((minutes * 60 + seconds) / (totalCookTime * 60));
+  const progress = 1 - ((minutes * 60 + seconds) / (safeTotalCookTime * 60));
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -149,7 +153,7 @@ const CookingTimerScreen: React.FC<CookingTimerScreenProps> = ({ navigation, rou
               }
             }}
           >
-            <Text style={styles.backButtonText}>← Back</Text>
+            <Text style={styles.backButtonText}>{'<- Back'}</Text>
           </TouchableOpacity>
 
           <View style={styles.dishInfo}>
@@ -203,7 +207,7 @@ const CookingTimerScreen: React.FC<CookingTimerScreenProps> = ({ navigation, rou
               style={styles.startButton}
               onPress={handleStart}
             >
-              <Text style={styles.startButtonText}>▶ Start Timer</Text>
+              <Text style={styles.startButtonText}>Start Timer</Text>
             </TouchableOpacity>
           ) : (
             <>
@@ -212,7 +216,7 @@ const CookingTimerScreen: React.FC<CookingTimerScreenProps> = ({ navigation, rou
                 onPress={isPaused ? handleResume : handlePause}
               >
                 <Text style={styles.controlButtonText}>
-                  {isPaused ? '▶ Resume' : '⏸ Pause'}
+                  {isPaused ? 'Resume' : 'Pause'}
                 </Text>
               </TouchableOpacity>
 
@@ -220,7 +224,7 @@ const CookingTimerScreen: React.FC<CookingTimerScreenProps> = ({ navigation, rou
                 style={[styles.controlButton, styles.resetButton]}
                 onPress={handleReset}
               >
-                <Text style={styles.resetButtonText}>↻ Reset</Text>
+                <Text style={styles.resetButtonText}>Reset</Text>
               </TouchableOpacity>
             </>
           )}
@@ -229,12 +233,13 @@ const CookingTimerScreen: React.FC<CookingTimerScreenProps> = ({ navigation, rou
         {/* Skip Timer Option */}
         <TouchableOpacity
           style={styles.skipButton}
-          onPress={() => navigation.navigate('Done', {
+          onPress={() => navigation.navigate('Feedback', {
             dishName,
             servingSize,
+            recipeId,
           })}
         >
-          <Text style={styles.skipButtonText}>Skip Timer →</Text>
+          <Text style={styles.skipButtonText}>Skip Timer -></Text>
         </TouchableOpacity>
       </LinearGradient>
     </SafeAreaView>

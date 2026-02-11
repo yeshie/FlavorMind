@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ArrowLeft, Check } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Input from '../../../common/components/Input/Input';
@@ -80,7 +81,10 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.backButtonText}>← Back</Text>
+            <View style={styles.backButtonContent}>
+              <ArrowLeft size={scaleFontSize(16)} color={COLORS.primary.main} />
+              <Text style={styles.backButtonText}>Back</Text>
+            </View>
           </TouchableOpacity>
 
           <View style={styles.header}>
@@ -116,9 +120,12 @@ const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ navigation 
 
             {emailSent && (
               <View style={styles.successContainer}>
-                <Text style={styles.successText}>
-                  ✓ Check your email for password reset instructions
-                </Text>
+                <View style={styles.successRow}>
+                  <Check size={scaleFontSize(16)} color={COLORS.status.success} />
+                  <Text style={styles.successText}>
+                    Check your email for password reset instructions
+                  </Text>
+                </View>
                 <TouchableOpacity
                   style={styles.resendButton}
                   onPress={() => {
@@ -161,6 +168,11 @@ const styles = StyleSheet.create({
   backButton: {
     marginBottom: moderateScale(SPACING.lg),
   },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
+  },
   backButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
     color: COLORS.primary.main,
@@ -190,11 +202,16 @@ const styles = StyleSheet.create({
     borderRadius: moderateScale(8),
     alignItems: 'center',
   },
+  successRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
+    marginBottom: moderateScale(SPACING.sm),
+  },
   successText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.sm),
     color: COLORS.status.success,
     textAlign: 'center',
-    marginBottom: moderateScale(SPACING.sm),
   },
   resendButton: {
     paddingVertical: moderateScale(SPACING.xs),

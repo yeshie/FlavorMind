@@ -11,6 +11,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MessageCircle, Star } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 
@@ -271,11 +272,11 @@ const DigitalCommitteeScreen: React.FC<DigitalCommitteeScreenProps> = ({ navigat
 
                 <View style={styles.recipeStats}>
                   <View style={styles.statItem}>
-                    <Text style={styles.starIcon}>⭐</Text>
+                    <Star size={scaleFontSize(14)} color={COLORS.pastelOrange.main} strokeWidth={2} style={styles.starIcon} />
                     <Text style={styles.statText}>{recipe.rating}</Text>
                   </View>
                   <View style={styles.statItem}>
-                    <Text style={styles.commentIcon}>💬</Text>
+                    <MessageCircle size={scaleFontSize(14)} color={COLORS.text.secondary} strokeWidth={2} style={styles.commentIcon} />
                     <Text style={styles.statText}>{recipe.comments}</Text>
                   </View>
                   <View style={styles.categoryBadge}>
@@ -320,7 +321,7 @@ const DigitalCommitteeScreen: React.FC<DigitalCommitteeScreenProps> = ({ navigat
                   </Text>
                   <View style={styles.cookbookStats}>
                     <View style={styles.cookbookStat}>
-                      <Text style={styles.starIcon}>⭐</Text>
+                      <Star size={scaleFontSize(14)} color={COLORS.pastelOrange.main} strokeWidth={2} style={styles.starIcon} />
                       <Text style={styles.cookbookRating}>{cookbook.rating}</Text>
                     </View>
                     <Text style={styles.recipeCount}>
@@ -534,11 +535,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   starIcon: {
-    fontSize: scaleFontSize(14),
     marginRight: moderateScale(4),
   },
   commentIcon: {
-    fontSize: scaleFontSize(14),
     marginRight: moderateScale(4),
   },
   statText: {

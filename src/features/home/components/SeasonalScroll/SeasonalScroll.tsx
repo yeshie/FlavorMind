@@ -59,7 +59,11 @@ const SeasonalScroll: React.FC<SeasonalScrollProps> = ({ items, onItemPress }) =
           >
             <View style={styles.imageContainer}>
               <Image
-                source={{ uri: item.image }}
+                source={
+                  item.image
+                    ? { uri: item.image }
+                    : require('../../../../assets/icon.png')
+                }
                 style={styles.image}
                 resizeMode="cover"
               />

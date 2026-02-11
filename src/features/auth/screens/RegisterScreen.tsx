@@ -11,6 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Apple, Check, Search } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Input from '../../../common/components/Input/Input';
@@ -167,7 +168,13 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
               activeOpacity={0.7}
             >
               <View style={[styles.checkbox, agreedToTerms && styles.checkboxChecked]}>
-                {agreedToTerms && <Text style={styles.checkmark}>✓</Text>}
+                {agreedToTerms && (
+                  <Check
+                    size={scaleFontSize(16)}
+                    color={COLORS.text.white}
+                    strokeWidth={3}
+                  />
+                )}
               </View>
               <View style={styles.termsTextContainer}>
                 <Text style={styles.termsText}>
@@ -209,7 +216,14 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
                 onPress={handleGoogleSignUp}
                 disabled={loading}
               >
-                <Text style={styles.socialButtonText}>🔍 Google</Text>
+                <View style={styles.socialButtonContent}>
+                  <Search
+                    size={scaleFontSize(18)}
+                    color={COLORS.text.primary}
+                    strokeWidth={2}
+                  />
+                  <Text style={styles.socialButtonText}>Google</Text>
+                </View>
               </TouchableOpacity>
 
               {Platform.OS === 'ios' && (
@@ -218,7 +232,14 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
                   onPress={handleAppleSignUp}
                   disabled={loading}
                 >
-                  <Text style={styles.socialButtonText}>🍎 Apple</Text>
+                  <View style={styles.socialButtonContent}>
+                    <Apple
+                      size={scaleFontSize(18)}
+                      color={COLORS.text.primary}
+                      strokeWidth={2}
+                    />
+                    <Text style={styles.socialButtonText}>Apple</Text>
+                  </View>
                 </TouchableOpacity>
               )}
             </View>
@@ -289,11 +310,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary.main,
     borderColor: COLORS.primary.main,
   },
-  checkmark: {
-    color: COLORS.text.white,
-    fontSize: scaleFontSize(16),
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-  },
   termsTextContainer: {
     flex: 1,
     flexDirection: 'row',
@@ -343,6 +359,11 @@ const styles = StyleSheet.create({
     paddingVertical: moderateScale(SPACING.md),
     alignItems: 'center',
     backgroundColor: COLORS.background.white,
+  },
+  socialButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
   },
   socialButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),

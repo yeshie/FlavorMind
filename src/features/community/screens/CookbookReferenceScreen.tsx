@@ -10,6 +10,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ArrowLeft, BookOpen, Camera, Lightbulb, Sparkles, Star, Users } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
@@ -43,7 +44,10 @@ const CookbookReferenceScreen: React.FC<CookbookReferenceScreenProps> = ({
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <View style={styles.backButtonContent}>
+            <ArrowLeft size={scaleFontSize(16)} color={COLORS.pastelOrange.dark} />
+            <Text style={styles.backButtonText}>Back</Text>
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -61,7 +65,7 @@ const CookbookReferenceScreen: React.FC<CookbookReferenceScreenProps> = ({
           />
           <View style={styles.coverOverlay}>
             <View style={styles.ratingBadge}>
-              <Text style={styles.starIcon}>⭐</Text>
+              <Star size={scaleFontSize(18)} color={COLORS.pastelOrange.main} strokeWidth={2} style={styles.starIcon} />
               <Text style={styles.ratingText}>{cookbook.rating}</Text>
             </View>
           </View>
@@ -74,11 +78,11 @@ const CookbookReferenceScreen: React.FC<CookbookReferenceScreenProps> = ({
 
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statIcon}>📖</Text>
+              <BookOpen size={scaleFontSize(18)} color={COLORS.text.secondary} strokeWidth={2} style={styles.statIcon} />
               <Text style={styles.statText}>{cookbook.recipesCount} Recipes</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statIcon}>👥</Text>
+              <Users size={scaleFontSize(18)} color={COLORS.text.secondary} strokeWidth={2} style={styles.statIcon} />
               <Text style={styles.statText}>2.4k Readers</Text>
             </View>
           </View>
@@ -107,7 +111,7 @@ const CookbookReferenceScreen: React.FC<CookbookReferenceScreenProps> = ({
           <Text style={styles.sectionTitle}>What's Inside</Text>
           <View style={styles.featuresList}>
             <View style={styles.featureItem}>
-              <Text style={styles.featureIcon}>✨</Text>
+              <Sparkles size={scaleFontSize(22)} color={COLORS.pastelOrange.main} strokeWidth={2} style={styles.featureIcon} />
               <View style={styles.featureContent}>
                 <Text style={styles.featureTitle}>Authentic Recipes</Text>
                 <Text style={styles.featureDescription}>
@@ -116,7 +120,7 @@ const CookbookReferenceScreen: React.FC<CookbookReferenceScreenProps> = ({
               </View>
             </View>
             <View style={styles.featureItem}>
-              <Text style={styles.featureIcon}>📸</Text>
+              <Camera size={scaleFontSize(22)} color={COLORS.pastelGreen.main} strokeWidth={2} style={styles.featureIcon} />
               <View style={styles.featureContent}>
                 <Text style={styles.featureTitle}>Step-by-Step Photos</Text>
                 <Text style={styles.featureDescription}>
@@ -125,7 +129,7 @@ const CookbookReferenceScreen: React.FC<CookbookReferenceScreenProps> = ({
               </View>
             </View>
             <View style={styles.featureItem}>
-              <Text style={styles.featureIcon}>💡</Text>
+              <Lightbulb size={scaleFontSize(22)} color={COLORS.pastelYellow.main} strokeWidth={2} style={styles.featureIcon} />
               <View style={styles.featureContent}>
                 <Text style={styles.featureTitle}>Expert Tips</Text>
                 <Text style={styles.featureDescription}>
@@ -142,14 +146,23 @@ const CookbookReferenceScreen: React.FC<CookbookReferenceScreenProps> = ({
           <View style={styles.reviewCard}>
             <View style={styles.reviewHeader}>
               <Image
-                source={{ uri: 'https://i.pravatar.cc/150?img=5' }}
+                source={{ uri: 'https://i.pravatar.cc/150img=5' }}
                 style={styles.reviewerAvatar}
                 resizeMode="cover"
               />
               <View style={styles.reviewerInfo}>
                 <Text style={styles.reviewerName}>Priya Jayasinghe</Text>
                 <View style={styles.reviewStars}>
-                  <Text style={styles.reviewStarsText}>⭐⭐⭐⭐⭐</Text>
+                  {[...Array(5)].map((_, index) => (
+                    <Star
+                      key={index}
+                      size={scaleFontSize(14)}
+                      color={COLORS.pastelOrange.main}
+                      fill={COLORS.pastelOrange.main}
+                      strokeWidth={1.5}
+                      style={styles.reviewStar}
+                    />
+                  ))}
                 </View>
               </View>
             </View>
@@ -172,7 +185,7 @@ const CookbookReferenceScreen: React.FC<CookbookReferenceScreenProps> = ({
           onPress={handleNext}
           icon={require('../../../assets/icons/book.png')}
         >
-          Start Reading →
+          Start Reading
         </Button>
       </View>
     </SafeAreaView>
@@ -194,6 +207,11 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: moderateScale(SPACING.xs),
+  },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
   },
   backButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
@@ -230,7 +248,6 @@ const styles = StyleSheet.create({
     ...SHADOWS.medium,
   },
   starIcon: {
-    fontSize: scaleFontSize(20),
     marginRight: moderateScale(4),
   },
   ratingText: {
@@ -270,7 +287,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statIcon: {
-    fontSize: scaleFontSize(20),
     marginRight: moderateScale(SPACING.xs),
   },
   statText: {
@@ -321,7 +337,6 @@ const styles = StyleSheet.create({
     ...SHADOWS.small,
   },
   featureIcon: {
-    fontSize: scaleFontSize(32),
     marginRight: moderateScale(SPACING.md),
   },
   featureContent: {
@@ -362,8 +377,8 @@ const styles = StyleSheet.create({
     marginBottom: moderateScale(4),
   },
   reviewStars: {},
-  reviewStarsText: {
-    fontSize: scaleFontSize(14),
+  reviewStar: {
+    marginRight: moderateScale(2),
   },
   reviewText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.sm),

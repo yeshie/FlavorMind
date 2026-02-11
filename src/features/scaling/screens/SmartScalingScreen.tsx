@@ -13,6 +13,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ArrowLeft, BookOpen, Check, Lightbulb, Plus } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
@@ -59,9 +60,15 @@ const SmartScalingScreen: React.FC<SmartScalingScreenProps> = ({ navigation }) =
   ];
 
   const handleSearch = () => {
-    if (searchQuery.trim()) {
-      console.log('Searching for:', searchQuery);
+    const trimmedQuery = searchQuery.trim();
+    if (!trimmedQuery) {
+      Alert.alert('Input Required', 'Please enter a recipe name to search');
+      return;
     }
+
+    navigation.navigate('SmartScalingSearchResults', {
+      query: trimmedQuery,
+    });
   };
 
   const handleAddRecipe = () => {
@@ -104,7 +111,10 @@ const SmartScalingScreen: React.FC<SmartScalingScreenProps> = ({ navigation }) =
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.backButtonText}>← Back</Text>
+            <View style={styles.backButtonContent}>
+              <ArrowLeft size={scaleFontSize(16)} color={COLORS.pastelOrange.dark} />
+              <Text style={styles.backButtonText}>Back</Text>
+            </View>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Smart Scaling</Text>
         </View>
@@ -117,17 +127,20 @@ const SmartScalingScreen: React.FC<SmartScalingScreenProps> = ({ navigation }) =
           {/* Search Bar */}
           <View style={styles.searchSection}>
             <View style={styles.searchContainer}>
-              <Image
-                source={require('../../../assets/icons/search.png')}
-                style={styles.searchIcon}
-                resizeMode="contain"
-              />
+              <TouchableOpacity onPress={handleSearch} activeOpacity={0.7}>
+                <Image
+                  source={require('../../../assets/icons/search.png')}
+                  style={styles.searchIcon}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search for a recipe (e.g., Chicken curry)"
                 placeholderTextColor={COLORS.text.tertiary}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
+                returnKeyType="search"
                 onSubmitEditing={handleSearch}
               />
             </View>
@@ -141,7 +154,7 @@ const SmartScalingScreen: React.FC<SmartScalingScreenProps> = ({ navigation }) =
               activeOpacity={0.8}
             >
               <View style={styles.actionButtonIcon}>
-                <Text style={styles.actionButtonIconText}>➕</Text>
+                <Plus size={scaleFontSize(20)} color={COLORS.text.primary} strokeWidth={2} style={styles.actionButtonIconText} />
               </View>
               <Text style={styles.actionButtonText}>Add Your Own Recipe</Text>
             </TouchableOpacity>
@@ -152,7 +165,7 @@ const SmartScalingScreen: React.FC<SmartScalingScreenProps> = ({ navigation }) =
               activeOpacity={0.8}
             >
               <View style={styles.actionButtonIcon}>
-                <Text style={styles.actionButtonIconText}>📚</Text>
+                <BookOpen size={scaleFontSize(20)} color={COLORS.text.primary} strokeWidth={2} style={styles.actionButtonIconText} />
               </View>
               <Text style={styles.actionButtonText}>Library</Text>
             </TouchableOpacity>
@@ -236,7 +249,7 @@ const SmartScalingScreen: React.FC<SmartScalingScreenProps> = ({ navigation }) =
 
           {/* Info Box */}
           <View style={styles.infoBox}>
-            <Text style={styles.infoIcon}>💡</Text>
+            <Lightbulb size={scaleFontSize(24)} color={COLORS.pastelYellow.dark} strokeWidth={2} style={styles.infoIcon} />
             <View style={styles.infoContent}>
               <Text style={styles.infoTitle}>How it works</Text>
               <Text style={styles.infoText}>
@@ -249,19 +262,19 @@ const SmartScalingScreen: React.FC<SmartScalingScreenProps> = ({ navigation }) =
           <View style={styles.tipsSection}>
             <Text style={styles.tipsTitle}>Pro Tips:</Text>
             <View style={styles.tipItem}>
-              <Text style={styles.tipBullet}>✓</Text>
+              <Check size={scaleFontSize(14)} color={COLORS.pastelGreen.dark} strokeWidth={2} style={styles.tipBullet} />
               <Text style={styles.tipText}>
                 Be specific with amounts: "2 cups flour" not just "flour"
               </Text>
             </View>
             <View style={styles.tipItem}>
-              <Text style={styles.tipBullet}>✓</Text>
+              <Check size={scaleFontSize(14)} color={COLORS.pastelGreen.dark} strokeWidth={2} style={styles.tipBullet} />
               <Text style={styles.tipText}>
                 Include the unit: cups, grams, tablespoons, etc.
               </Text>
             </View>
             <View style={styles.tipItem}>
-              <Text style={styles.tipBullet}>✓</Text>
+              <Check size={scaleFontSize(14)} color={COLORS.pastelGreen.dark} strokeWidth={2} style={styles.tipBullet} />
               <Text style={styles.tipText}>
                 Works best with main ingredients like flour, rice, chicken, etc.
               </Text>
@@ -290,6 +303,11 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginBottom: moderateScale(SPACING.md),
+  },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
   },
   backButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
@@ -357,9 +375,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: moderateScale(SPACING.sm),
   },
-  actionButtonIconText: {
-    fontSize: scaleFontSize(20),
-  },
+  actionButtonIconText: {},
   actionButtonText: {
     flex: 1,
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.sm),
@@ -483,7 +499,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.pastelYellow.main,
   },
   infoIcon: {
-    fontSize: scaleFontSize(32),
     marginRight: moderateScale(SPACING.md),
   },
   infoContent: {
@@ -521,9 +536,6 @@ const styles = StyleSheet.create({
     marginBottom: moderateScale(SPACING.sm),
   },
   tipBullet: {
-    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.sm),
-    color: COLORS.pastelGreen.dark,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
     marginRight: moderateScale(SPACING.sm),
     marginTop: moderateScale(2),
   },

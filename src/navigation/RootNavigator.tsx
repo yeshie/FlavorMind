@@ -30,10 +30,13 @@ import FeedbackScreen from '../features/memory/screens/FeedbackScreen';
 import LocalAdaptationScreen from '../features/adaptation/screens/LocalAdaptationScreen';
 import SeasonalFoodScreen from '../features/adaptation/screens/SeasonalFoodScreen';
 import AddRecipeScreen from '../features/adaptation/screens/AddRecipeScreen';
+import IngredientGuideScreen from '../features/adaptation/screens/IngredientGuideScreen';
+import AddAdaptationScreen from '../features/adaptation/screens/AddAdaptationScreen';
 
 // Scaling Screens
 import SmartScalingScreen from '../features/scaling/screens/SmartScalingScreen';
 import ScaledRecipeResultsScreen from '../features/scaling/screens/ScaledRecipeResultsScreen';
+import SmartScalingSearchResultsScreen from '../features/scaling/screens/SmartScalingSearchResultsScreen';
 
 // Community Screens
 import DigitalCommitteeScreen from '../features/community/screens/DigitalCommitteeScreen';
@@ -65,8 +68,11 @@ type RootStackParamList = {
   LocalAdaptation: undefined;
   SeasonalFood: { food: any };
   AddRecipe: undefined;
+  AddAdaptation: undefined;
+  IngredientGuide: { [key: string]: any };
   SmartScaling: undefined;
   ScaledRecipeResults: { scalingQuery: string };
+  SmartScalingSearchResults: { query: string };
   DigitalCommittee: undefined;
   RecipeDescription: { recipeId: string };
   CookbookReference: { cookbook: any };
@@ -168,10 +174,13 @@ const RootNavigator: React.FC = () => {
             <Stack.Screen name="LocalAdaptation" component={LocalAdaptationScreen} />
             <Stack.Screen name="SeasonalFood" component={SeasonalFoodScreen} />
             <Stack.Screen name="AddRecipe" component={AddRecipeScreen} />
+            <Stack.Screen name="AddAdaptation" component={AddAdaptationScreen} />
+            <Stack.Screen name="IngredientGuide" component={IngredientGuideScreen} />
 
             {/* Scaling Screens */}
             <Stack.Screen name="SmartScaling" component={SmartScalingScreen} />
             <Stack.Screen name="ScaledRecipeResults" component={ScaledRecipeResultsScreen} />
+            <Stack.Screen name="SmartScalingSearchResults" component={SmartScalingSearchResultsScreen} />
 
             {/* Community Screens */}
             <Stack.Screen name="DigitalCommittee" component={DigitalCommitteeScreen} />

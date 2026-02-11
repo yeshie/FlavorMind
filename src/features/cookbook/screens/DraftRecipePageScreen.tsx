@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ArrowLeft, ChefHat, ClipboardList, Globe, Lightbulb, Pencil, Save, Trash2 } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
@@ -95,7 +96,10 @@ const DraftRecipePageScreen: React.FC<DraftRecipePageScreenProps> = ({
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <View style={styles.backButtonContent}>
+            <ArrowLeft size={scaleFontSize(16)} color={COLORS.pastelOrange.dark} />
+            <Text style={styles.backButtonText}>Back</Text>
+          </View>
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>Draft Recipe</Text>
@@ -130,11 +134,11 @@ const DraftRecipePageScreen: React.FC<DraftRecipePageScreenProps> = ({
           </Text>
 
           <View style={styles.statusBox}>
-            <Text style={styles.statusIcon}>📝</Text>
+            <ClipboardList size={scaleFontSize(24)} color={COLORS.text.secondary} strokeWidth={2} style={styles.statusIcon} />
             <View style={styles.statusContent}>
               <Text style={styles.statusTitle}>Draft Status</Text>
               <Text style={styles.statusText}>
-                Not yet published • Private to you
+                Not yet published - Private to you
               </Text>
             </View>
           </View>
@@ -152,7 +156,7 @@ const DraftRecipePageScreen: React.FC<DraftRecipePageScreenProps> = ({
               activeOpacity={0.8}
             >
               <View style={[styles.actionIconContainer, { backgroundColor: COLORS.pastelOrange.light }]}>
-                <Text style={styles.actionIcon}>🍳</Text>
+                <ChefHat size={scaleFontSize(26)} color={COLORS.text.primary} strokeWidth={2} style={styles.actionIcon} />
               </View>
               <Text style={styles.actionTitle}>Recreate</Text>
               <Text style={styles.actionDescription}>
@@ -167,7 +171,7 @@ const DraftRecipePageScreen: React.FC<DraftRecipePageScreenProps> = ({
               activeOpacity={0.8}
             >
               <View style={[styles.actionIconContainer, { backgroundColor: COLORS.pastelYellow.light }]}>
-                <Text style={styles.actionIcon}>✏️</Text>
+                <Pencil size={scaleFontSize(24)} color={COLORS.text.primary} strokeWidth={2} style={styles.actionIcon} />
               </View>
               <Text style={styles.actionTitle}>Edit</Text>
               <Text style={styles.actionDescription}>
@@ -182,7 +186,7 @@ const DraftRecipePageScreen: React.FC<DraftRecipePageScreenProps> = ({
               activeOpacity={0.8}
             >
               <View style={[styles.actionIconContainer, { backgroundColor: COLORS.pastelGreen.light }]}>
-                <Text style={styles.actionIcon}>🌍</Text>
+                <Globe size={scaleFontSize(24)} color={COLORS.text.primary} strokeWidth={2} style={styles.actionIcon} />
               </View>
               <Text style={styles.actionTitle}>Publish</Text>
               <Text style={styles.actionDescription}>
@@ -197,7 +201,7 @@ const DraftRecipePageScreen: React.FC<DraftRecipePageScreenProps> = ({
               activeOpacity={0.8}
             >
               <View style={[styles.actionIconContainer, { backgroundColor: COLORS.background.tertiary }]}>
-                <Text style={styles.actionIcon}>💾</Text>
+                <Save size={scaleFontSize(24)} color={COLORS.text.primary} strokeWidth={2} style={styles.actionIcon} />
               </View>
               <Text style={styles.actionTitle}>Save</Text>
               <Text style={styles.actionDescription}>
@@ -209,7 +213,7 @@ const DraftRecipePageScreen: React.FC<DraftRecipePageScreenProps> = ({
 
         {/* Info Box */}
         <View style={styles.infoBox}>
-          <Text style={styles.infoBoxIcon}>💡</Text>
+          <Lightbulb size={scaleFontSize(24)} color={COLORS.pastelYellow.dark} strokeWidth={2} style={styles.infoBoxIcon} />
           <View style={styles.infoBoxContent}>
             <Text style={styles.infoBoxTitle}>Publishing Tips</Text>
             <Text style={styles.infoBoxText}>
@@ -228,7 +232,7 @@ const DraftRecipePageScreen: React.FC<DraftRecipePageScreenProps> = ({
           onPress={handleDelete}
           activeOpacity={0.7}
         >
-          <Text style={styles.deleteIcon}>🗑️</Text>
+          <Trash2 size={scaleFontSize(20)} color={COLORS.status.error} strokeWidth={2} style={styles.deleteIcon} />
           <Text style={styles.deleteText}>Delete Draft</Text>
         </TouchableOpacity>
       </View>
@@ -249,6 +253,11 @@ const styles = StyleSheet.create({
   backButton: {
     padding: moderateScale(SPACING.xs),
     marginBottom: moderateScale(SPACING.sm),
+  },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
   },
   backButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
@@ -330,7 +339,6 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.md,
   },
   statusIcon: {
-    fontSize: scaleFontSize(32),
     marginRight: moderateScale(SPACING.md),
   },
   statusContent: {
@@ -377,9 +385,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: moderateScale(SPACING.md),
   },
-  actionIcon: {
-    fontSize: scaleFontSize(28),
-  },
+  actionIcon: {},
   actionTitle: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
     fontWeight: TYPOGRAPHY.fontWeight.bold,
@@ -404,7 +410,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.pastelYellow.main,
   },
   infoBoxIcon: {
-    fontSize: scaleFontSize(32),
     marginRight: moderateScale(SPACING.md),
   },
   infoBoxContent: {
@@ -439,7 +444,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.status.error,
   },
   deleteIcon: {
-    fontSize: scaleFontSize(20),
     marginRight: moderateScale(SPACING.xs),
   },
   deleteText: {

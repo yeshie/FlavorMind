@@ -1,5 +1,5 @@
 // src/features/cookbook/screens/SelectRecipesPageScreen.tsx
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,101 +8,56 @@ import {
   StyleSheet,
   Image,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ArrowLeft, Check } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
+import recipeService, { Recipe } from '../../../services/api/recipe.service';
+import { getCurrentUser } from '../../../services/firebase/authService';
 
 interface SelectRecipesPageScreenProps {
   navigation: any;
 }
 
-interface Recipe {
+interface RecipeCard {
   id: string;
   title: string;
-  image: string;
+  image?: string;
   isPublished: boolean;
 }
 
 const SelectRecipesPageScreen: React.FC<SelectRecipesPageScreenProps> = ({ navigation }) => {
   const [selectedRecipes, setSelectedRecipes] = useState<Set<string>>(new Set());
+  const [allRecipes, setAllRecipes] = useState<RecipeCard[]>([]);
+  const [loadingRecipes, setLoadingRecipes] = useState(true);
 
-  // Mock recipes - published and drafts
-  const allRecipes: Recipe[] = [
-    {
-      id: '1',
-      title: 'Traditional Fish Curry',
-      image: 'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=400',
-      isPublished: true,
-    },
-    {
-      id: '2',
-      title: 'Coconut Sambol',
-      image: 'https://images.unsplash.com/photo-1596040033229-a0b9ce3f9c41?w=400',
-      isPublished: true,
-    },
-    {
-      id: '3',
-      title: 'Chicken Curry',
-      image: 'https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=400',
-      isPublished: false,
-    },
-    {
-      id: '4',
-      title: 'Dhal Curry',
-      image: 'https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=400',
-      isPublished: true,
-    },
-    {
-      id: '5',
-      title: 'Pumpkin Curry',
-      image: 'https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=400',
-      isPublished: false,
-    },
-    {
-      id: '6',
-      title: 'Vegetable Stir Fry',
-      image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400',
-      isPublished: true,
-    },
-    {
-      id: '7',
-      title: 'Egg Hoppers',
-      image: 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400',
-      isPublished: true,
-    },
-    {
-      id: '8',
-      title: 'Kottu Roti',
-      image: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=400',
-      isPublished: false,
-    },
-    {
-      id: '9',
-      title: 'Devilled Chicken',
-      image: 'https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=400',
-      isPublished: true,
-    },
-    {
-      id: '10',
-      title: 'Pol Roti',
-      image: 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400',
-      isPublished: true,
-    },
-    {
-      id: '11',
-      title: 'Parippu',
-      image: 'https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=400',
-      isPublished: false,
-    },
-    {
-      id: '12',
-      title: 'Watalappan',
-      image: 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400',
-      isPublished: true,
-    },
-  ];
+  const mapRecipeCard = (recipe: Recipe): RecipeCard => ({
+    id: recipe.id,
+    title: recipe.title,
+    image: recipe.imageUrl || recipe.image,
+    isPublished: recipe.isPublished ?? false,
+  });
+
+  const loadRecipes = useCallback(async () => {
+    setLoadingRecipes(true);
+    try {
+      const user = await getCurrentUser();
+      const response = await recipeService.getRecipes({
+        limit: 50,
+        ownerId: user?.uid,
+      });
+      const recipes = response.data.recipes || [];
+      setAllRecipes(recipes.map(mapRecipeCard));
+    } catch (error) {
+      console.error('Recipe selection load error:', error);
+      setAllRecipes([]);
+    } finally {
+      setLoadingRecipes(false);
+    }
+  }, []);
 
   const toggleRecipeSelection = (recipeId: string) => {
     const newSelected = new Set(selectedRecipes);
@@ -124,7 +79,7 @@ const SelectRecipesPageScreen: React.FC<SelectRecipesPageScreenProps> = ({ navig
     }
 
     // Get selected recipes data
-    const selectedRecipesData = allRecipes.filter(r => selectedRecipes.has(r.id));
+    const selectedRecipesData = allRecipes.filter((recipe) => selectedRecipes.has(recipe.id));
     
     navigation.navigate('CookbookCoverSetup', {
       selectedRecipes: selectedRecipesData,
@@ -135,12 +90,16 @@ const SelectRecipesPageScreen: React.FC<SelectRecipesPageScreenProps> = ({ navig
     if (selectedRecipes.size === allRecipes.length) {
       setSelectedRecipes(new Set());
     } else {
-      setSelectedRecipes(new Set(allRecipes.map(r => r.id)));
+      setSelectedRecipes(new Set(allRecipes.map((recipe) => recipe.id)));
     }
   };
 
   const selectedCount = selectedRecipes.size;
   const canProceed = selectedCount >= 10;
+
+  useEffect(() => {
+    loadRecipes();
+  }, [loadRecipes]);
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -150,7 +109,10 @@ const SelectRecipesPageScreen: React.FC<SelectRecipesPageScreenProps> = ({ navig
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <View style={styles.backButtonContent}>
+            <ArrowLeft size={scaleFontSize(16)} color={COLORS.pastelOrange.dark} />
+            <Text style={styles.backButtonText}>Back</Text>
+          </View>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Select Recipes</Text>
       </View>
@@ -191,56 +153,71 @@ const SelectRecipesPageScreen: React.FC<SelectRecipesPageScreenProps> = ({ navig
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <View style={styles.recipesGrid}>
-          {allRecipes.map((recipe) => {
-            const isSelected = selectedRecipes.has(recipe.id);
-            
-            return (
-              <TouchableOpacity
-                key={recipe.id}
-                style={[
-                  styles.recipeCard,
-                  isSelected && styles.recipeCardSelected,
-                ]}
-                onPress={() => toggleRecipeSelection(recipe.id)}
-                activeOpacity={0.9}
-              >
-                {/* Selection Checkbox */}
-                <View style={styles.checkboxContainer}>
-                  <View style={[
-                    styles.checkbox,
-                    isSelected && styles.checkboxSelected,
-                  ]}>
-                    {isSelected && (
-                      <Text style={styles.checkmark}>✓</Text>
-                    )}
+        {loadingRecipes ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color={COLORS.pastelOrange.main} />
+            <Text style={styles.loadingText}>Loading recipes...</Text>
+          </View>
+        ) : allRecipes.length > 0 ? (
+          <View style={styles.recipesGrid}>
+            {allRecipes.map((recipe) => {
+              const isSelected = selectedRecipes.has(recipe.id);
+              
+              return (
+                <TouchableOpacity
+                  key={recipe.id}
+                  style={[
+                    styles.recipeCard,
+                    isSelected && styles.recipeCardSelected,
+                  ]}
+                  onPress={() => toggleRecipeSelection(recipe.id)}
+                  activeOpacity={0.9}
+                >
+                  {/* Selection Checkbox */}
+                  <View style={styles.checkboxContainer}>
+                    <View style={[
+                      styles.checkbox,
+                      isSelected && styles.checkboxSelected,
+                    ]}>
+                      {isSelected && (
+                        <Check size={scaleFontSize(16)} color={COLORS.text.white} strokeWidth={3} />
+                      )}
+                    </View>
                   </View>
-                </View>
 
-                {/* Status Badge */}
-                {!recipe.isPublished && (
-                  <View style={styles.draftBadge}>
-                    <Text style={styles.draftBadgeText}>DRAFT</Text>
+                  {/* Status Badge */}
+                  {!recipe.isPublished && (
+                    <View style={styles.draftBadge}>
+                      <Text style={styles.draftBadgeText}>DRAFT</Text>
+                    </View>
+                  )}
+
+                  {/* Recipe Image */}
+                  <Image
+                    source={
+                      recipe.image
+                        ? { uri: recipe.image }
+                        : require('../../../assets/icon.png')
+                    }
+                    style={styles.recipeImage}
+                    resizeMode="cover"
+                  />
+
+                  {/* Recipe Title */}
+                  <View style={styles.recipeInfo}>
+                    <Text style={styles.recipeTitle} numberOfLines={2}>
+                      {recipe.title}
+                    </Text>
                   </View>
-                )}
-
-                {/* Recipe Image */}
-                <Image
-                  source={{ uri: recipe.image }}
-                  style={styles.recipeImage}
-                  resizeMode="cover"
-                />
-
-                {/* Recipe Title */}
-                <View style={styles.recipeInfo}>
-                  <Text style={styles.recipeTitle} numberOfLines={2}>
-                    {recipe.title}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>No recipes available to select.</Text>
+          </View>
+        )}
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -255,7 +232,7 @@ const SelectRecipesPageScreen: React.FC<SelectRecipesPageScreenProps> = ({ navig
           disabled={!canProceed}
           style={[styles.nextButton, !canProceed && styles.nextButtonDisabled]}
         >
-          {canProceed ? `Next (${selectedCount} selected) →` : `Select ${10 - selectedCount} more`}
+          {canProceed ? `Next (${selectedCount} selected)` : `Select ${10 - selectedCount} more`}
         </Button>
       </View>
     </SafeAreaView>
@@ -274,6 +251,11 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginBottom: moderateScale(SPACING.md),
+  },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
   },
   backButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
@@ -399,11 +381,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.pastelGreen.main,
     borderColor: COLORS.pastelGreen.main,
   },
-  checkmark: {
-    color: COLORS.text.white,
-    fontSize: scaleFontSize(18),
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-  },
   draftBadge: {
     position: 'absolute',
     top: moderateScale(SPACING.sm),
@@ -446,6 +423,16 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: moderateScale(SPACING['4xl']),
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: moderateScale(SPACING.base),
+    paddingVertical: moderateScale(SPACING.md),
+  },
+  loadingText: {
+    marginLeft: moderateScale(SPACING.sm),
+    color: COLORS.text.secondary,
   },
 });
 

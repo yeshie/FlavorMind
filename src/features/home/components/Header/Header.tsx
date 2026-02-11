@@ -14,8 +14,9 @@ import { moderateScale, scaleFontSize } from '../../../../common/utils/responsiv
 import { UserLocation } from '../../types/home.types';
 
 interface HeaderProps {
-  userName: string;
-  location: UserLocation;
+  userName?: string;
+  location?: UserLocation;
+  profileImageUrl?: string | null;
   onNotificationPress: () => void;
   onProfilePress: () => void;
 }
@@ -23,9 +24,13 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({
   userName,
   location,
+  profileImageUrl,
   onNotificationPress,
   onProfilePress,
 }) => {
+  const safeUserName = userName && userName.trim().length > 0 ? userName : 'Guest';
+  const locationText = [location?.city, location?.country].filter(Boolean).join(', ');
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good Morning';
@@ -52,7 +57,7 @@ const Header: React.FC<HeaderProps> = ({
       <View style={styles.userSection}>
         <View style={styles.leftSection}>
           <Text style={styles.greeting}>
-            {getGreeting()}, {userName}
+            {getGreeting()}, {safeUserName}
           </Text>
           <View style={styles.locationContainer}>
             <Image
@@ -61,7 +66,7 @@ const Header: React.FC<HeaderProps> = ({
               resizeMode="contain"
             />
             <Text style={styles.locationText}>
-              {location.city}, {location.country}
+              {locationText || 'Location unavailable'}
             </Text>
           </View>
         </View>
@@ -86,7 +91,11 @@ const Header: React.FC<HeaderProps> = ({
             activeOpacity={0.7}
           >
             <Image
-              source={require('../../../../assets/icons/user.png')}
+              source={
+                profileImageUrl
+                  ? { uri: profileImageUrl }
+                  : require('../../../../assets/icons/user.png')
+              }
               style={styles.profileImage}
               resizeMode="cover"
             />

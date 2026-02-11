@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Bookmark, ChevronRight, Share2, Sparkles, Star, Trophy } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
@@ -74,11 +75,11 @@ const CookbookThankYouScreen: React.FC<CookbookThankYouScreenProps> = ({
 
   const getRatingText = (stars: number) => {
     switch (stars) {
-      case 5: return 'Excellent! 🌟';
-      case 4: return 'Great! 👍';
-      case 3: return 'Good! 👌';
-      case 2: return 'Fair 😐';
-      case 1: return 'Needs Improvement 🤔';
+      case 5: return 'Excellent!';
+      case 4: return 'Great!';
+      case 3: return 'Good!';
+      case 2: return 'Fair';
+      case 1: return 'Needs Improvement';
       default: return '';
     }
   };
@@ -93,7 +94,7 @@ const CookbookThankYouScreen: React.FC<CookbookThankYouScreenProps> = ({
         <View style={styles.content}>
           {/* Success Icon */}
           <View style={styles.iconContainer}>
-            <Text style={styles.successIcon}>🎉</Text>
+            <Sparkles size={scaleFontSize(72)} color={COLORS.pastelOrange.main} strokeWidth={2} />
           </View>
 
           {/* Thank You Message */}
@@ -115,7 +116,7 @@ const CookbookThankYouScreen: React.FC<CookbookThankYouScreenProps> = ({
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>∞</Text>
+              <Text style={styles.statNumber}>Unlimited</Text>
               <Text style={styles.statLabel}>Possibilities</Text>
             </View>
           </View>
@@ -132,9 +133,13 @@ const CookbookThankYouScreen: React.FC<CookbookThankYouScreenProps> = ({
                   activeOpacity={0.7}
                   style={styles.starButton}
                 >
-                  <Text style={styles.ratingStar}>
-                    {star <= rating ? '⭐' : '☆'}
-                  </Text>
+                  <Star
+                    size={scaleFontSize(32)}
+                    color={star <= rating ? COLORS.pastelOrange.main : COLORS.text.tertiary}
+                    fill={star <= rating ? COLORS.pastelOrange.main : 'transparent'}
+                    strokeWidth={2}
+                    style={styles.ratingStar}
+                  />
                 </TouchableOpacity>
               ))}
             </View>
@@ -162,18 +167,18 @@ const CookbookThankYouScreen: React.FC<CookbookThankYouScreenProps> = ({
             <Text style={styles.authorMessage}>
               "Thank you for joining me on this culinary journey. I hope these recipes 
               bring joy to your kitchen and smiles to your table! Remember, cooking is 
-              not just about following recipes—it's about creating memories."
+              not just about following recipes--it's about creating memories."
             </Text>
 
             <View style={styles.authorSignature}>
-              <Text style={styles.authorName}>— {cookbook.author}</Text>
+              <Text style={styles.authorName}>- {cookbook.author}</Text>
               <Text style={styles.authorTitle}>Recipe Creator & Food Enthusiast</Text>
             </View>
           </View>
 
           {/* Achievement Badge */}
           <View style={styles.achievementCard}>
-            <Text style={styles.achievementIcon}>🏆</Text>
+            <Trophy size={scaleFontSize(56)} color={COLORS.pastelGreen.dark} strokeWidth={2} style={styles.achievementIcon} />
             <Text style={styles.achievementTitle}>Cookbook Complete!</Text>
             <Text style={styles.achievementText}>
               You've finished reading all {cookbook.recipesCount} recipes. 
@@ -190,7 +195,7 @@ const CookbookThankYouScreen: React.FC<CookbookThankYouScreenProps> = ({
               onPress={handleGiveFeedback}
               style={styles.feedbackButton}
             >
-              📝 Give Feedback
+              Give Feedback
             </Button>
 
             <Button
@@ -201,7 +206,7 @@ const CookbookThankYouScreen: React.FC<CookbookThankYouScreenProps> = ({
               style={styles.homeButton}
               textStyle={styles.homeButtonText}
             >
-              🏠 Go to Home
+              Go to Home
             </Button>
           </View>
 
@@ -218,7 +223,7 @@ const CookbookThankYouScreen: React.FC<CookbookThankYouScreenProps> = ({
                 onPress={handleShare}
                 activeOpacity={0.7}
               >
-                <Text style={styles.shareButtonIcon}>📱</Text>
+                <Share2 size={scaleFontSize(20)} color={COLORS.text.primary} style={styles.shareButtonIcon} />
                 <Text style={styles.shareButtonText}>Share</Text>
               </TouchableOpacity>
 
@@ -227,7 +232,7 @@ const CookbookThankYouScreen: React.FC<CookbookThankYouScreenProps> = ({
                 onPress={handleSave}
                 activeOpacity={0.7}
               >
-                <Text style={styles.shareButtonIcon}>🔖</Text>
+                <Bookmark size={scaleFontSize(20)} color={COLORS.text.primary} style={styles.shareButtonIcon} />
                 <Text style={styles.shareButtonText}>Save to Library</Text>
               </TouchableOpacity>
             </View>
@@ -243,7 +248,10 @@ const CookbookThankYouScreen: React.FC<CookbookThankYouScreenProps> = ({
               style={styles.exploreButton}
               onPress={() => navigation.navigate('DigitalCommittee')}
             >
-              <Text style={styles.exploreButtonText}>Browse More Cookbooks →</Text>
+              <View style={styles.exploreButtonContent}>
+                <Text style={styles.exploreButtonText}>Browse More Cookbooks</Text>
+                <ChevronRight size={scaleFontSize(16)} color={COLORS.text.white} />
+              </View>
             </TouchableOpacity>
           </View>
         </View>
@@ -270,9 +278,6 @@ const styles = StyleSheet.create({
   },
   iconContainer: {
     marginBottom: moderateScale(SPACING.xl),
-  },
-  successIcon: {
-    fontSize: scaleFontSize(100),
   },
   title: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize['4xl']),
@@ -342,7 +347,7 @@ const styles = StyleSheet.create({
     padding: moderateScale(SPACING.xs),
   },
   ratingStar: {
-    fontSize: scaleFontSize(52),
+    marginHorizontal: moderateScale(2),
   },
   ratingFeedback: {
     marginTop: moderateScale(SPACING.lg),
@@ -430,7 +435,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.pastelGreen.light,
   },
   achievementIcon: {
-    fontSize: scaleFontSize(60),
     marginBottom: moderateScale(SPACING.md),
   },
   achievementTitle: {
@@ -495,7 +499,6 @@ const styles = StyleSheet.create({
     ...SHADOWS.small,
   },
   shareButtonIcon: {
-    fontSize: scaleFontSize(24),
     marginRight: moderateScale(SPACING.xs),
   },
   shareButtonText: {
@@ -529,6 +532,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: moderateScale(SPACING.xl),
     paddingVertical: moderateScale(SPACING.md),
     borderRadius: BORDER_RADIUS.full,
+  },
+  exploreButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
   },
   exploreButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),

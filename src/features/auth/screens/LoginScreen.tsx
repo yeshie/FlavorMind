@@ -12,6 +12,7 @@ import {
   Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Apple, Search } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Input from '../../../common/components/Input/Input';
@@ -216,7 +217,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 onPress={handleGoogleSignIn}
                 disabled={loading}
               >
-                <Text style={styles.socialButtonText}>🔍 Google</Text>
+                <View style={styles.socialButtonContent}>
+                  <Search
+                    size={scaleFontSize(18)}
+                    color={COLORS.text.primary}
+                    strokeWidth={2}
+                  />
+                  <Text style={styles.socialButtonText}>Google</Text>
+                </View>
               </TouchableOpacity>
 
               {Platform.OS === 'ios' && (
@@ -225,7 +233,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                   onPress={handleAppleSignIn}
                   disabled={loading}
                 >
-                  <Text style={styles.socialButtonText}> Apple</Text>
+                  <View style={styles.socialButtonContent}>
+                    <Apple
+                      size={scaleFontSize(18)}
+                      color={COLORS.text.primary}
+                      strokeWidth={2}
+                    />
+                    <Text style={styles.socialButtonText}>Apple</Text>
+                  </View>
                 </TouchableOpacity>
               )}
             </View>
@@ -337,6 +352,11 @@ const styles = StyleSheet.create({
     paddingVertical: moderateScale(SPACING.md),
     alignItems: 'center',
     backgroundColor: COLORS.background.white,
+  },
+  socialButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
   },
   socialButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),

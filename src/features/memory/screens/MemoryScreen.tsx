@@ -1,5 +1,5 @@
 // src/features/memory/screens/MemoryScreen.tsx - Memory-Based Cooking Home
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,15 @@ import {
   StyleSheet,
   Image,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { formatDistanceToNow } from 'date-fns';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
+import memoryService, { FoodMemory } from '../../../services/api/memory.service';
 
 interface MemoryScreenProps {
   navigation: any;
@@ -26,37 +29,45 @@ interface MemoryHistory {
   description: string;
   date: string;
   image?: string;
+  recipeId?: string;
 }
 
 const MemoryScreen: React.FC<MemoryScreenProps> = ({ navigation }) => {
   const [memoryQuery, setMemoryQuery] = useState('');
   const [isFocused, setIsFocused] = useState(false);
+  const [memoryHistory, setMemoryHistory] = useState<MemoryHistory[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [creatingMemory, setCreatingMemory] = useState(false);
 
-  // Mock memory history
-  const memoryHistory: MemoryHistory[] = [
-    {
-      id: '1',
-      dishName: 'Grandmother\'s Spicy Coconut Fish Curry',
-      // cspell:disable-next-line
-      description: 'Spicy fish curry with goraka and coconut milk',
-      date: '2 days ago',
-      image: 'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=400',
-    },
-    {
-      id: '2',
-      dishName: 'Mom\'s Creamy Pumpkin Curry',
-      description: 'Sweet and creamy pumpkin curry with spices',
-      date: '5 days ago',
-      image: 'https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=400',
-    },
-    {
-      id: '3',
-      dishName: 'Dad\'s Grilled Chicken',
-      description: 'Herb-infused grilled chicken with local spices',
-      date: '1 week ago',
-      image: 'https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=400',
-    },
-  ];
+  const formatRelativeDate = (dateValue?: string) => {
+    if (!dateValue) return 'Recently';
+    const parsed = new Date(dateValue);
+    if (Number.isNaN(parsed.getTime())) return 'Recently';
+    return formatDistanceToNow(parsed, { addSuffix: true });
+  };
+
+  const mapMemoryHistory = (memory: FoodMemory): MemoryHistory => ({
+    id: memory.id,
+    dishName: memory.generatedRecipe?.title || memory.generatedRecipe?.name || 'Generated Recipe',
+    description: memory.description,
+    date: formatRelativeDate(memory.createdAt),
+    image: memory.generatedRecipe?.imageUrl || memory.generatedRecipe?.image,
+    recipeId: memory.generatedRecipe?.id,
+  });
+
+  const loadMemoryHistory = useCallback(async () => {
+    setLoadingHistory(true);
+    try {
+      const response = await memoryService.getMemories(1, 10);
+      const memories = response.data.memories || [];
+      setMemoryHistory(memories.map(mapMemoryHistory));
+    } catch (error) {
+      console.error('Memory history load error:', error);
+      setMemoryHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, []);
 
   const handleVoiceInput = () => {
     Alert.alert('Voice Input', 'Voice recognition activated');
@@ -67,20 +78,38 @@ const MemoryScreen: React.FC<MemoryScreenProps> = ({ navigation }) => {
       Alert.alert('Memory Required', 'Please describe your food memory first');
       return;
     }
-
-    // Navigate to Similar Dishes page
-    navigation.navigate('SimilarDishesScreen', {
-      memoryQuery: memoryQuery.trim(),
-    });
+    setCreatingMemory(true);
+    memoryService
+      .createMemory({ description: memoryQuery.trim(), isVoiceInput: false })
+      .then((response) => {
+        const memory = response.data.memory;
+        navigation.navigate('SimilarDishesScreen', {
+          memoryQuery: memoryQuery.trim(),
+          memoryId: memory.id,
+          similarDishes: (memory as any).similarDishes,
+        });
+        setMemoryQuery('');
+      })
+      .catch((error) => {
+        console.error('Create memory error:', error);
+        Alert.alert('Error', 'Could not generate recipes right now.');
+      })
+      .finally(() => {
+        setCreatingMemory(false);
+      });
   };
 
   const handleMemoryHistoryPress = (memory: MemoryHistory) => {
     // Navigate directly to recipe customization
     navigation.navigate('RecipeCustomization', {
       dishName: memory.dishName,
-      dishId: memory.id,
+      dishId: memory.recipeId || memory.id,
     });
   };
+
+  useEffect(() => {
+    loadMemoryHistory();
+  }, [loadMemoryHistory]);
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -149,6 +178,7 @@ const MemoryScreen: React.FC<MemoryScreenProps> = ({ navigation }) => {
               fullWidth
               onPress={handleGenerateRecipe}
               disabled={!memoryQuery.trim()}
+              loading={creatingMemory}
               icon={require('../../../assets/icons/sparkle.png')}
               style={styles.generateButton}
             >
@@ -164,34 +194,49 @@ const MemoryScreen: React.FC<MemoryScreenProps> = ({ navigation }) => {
             <Text style={styles.historySubtitle}>Your generated recipes</Text>
           </View>
 
-          {memoryHistory.map((memory) => (
-            <TouchableOpacity
-              key={memory.id}
-              style={styles.historyCard}
-              onPress={() => handleMemoryHistoryPress(memory)}
-              activeOpacity={0.8}
-            >
-              <Image
-                source={{ uri: memory.image }}
-                style={styles.historyImage}
-                resizeMode="cover"
-              />
-              
-              <View style={styles.historyContent}>
-                <Text style={styles.historyDishName} numberOfLines={2}>
-                  {memory.dishName}
-                </Text>
-                <Text style={styles.historyDescription} numberOfLines={1}>
-                  {memory.description}
-                </Text>
-                <Text style={styles.historyDate}>{memory.date}</Text>
-              </View>
+          {loadingHistory ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={COLORS.pastelOrange.main} />
+              <Text style={styles.loadingText}>Loading memories...</Text>
+            </View>
+          ) : memoryHistory.length > 0 ? (
+            memoryHistory.map((memory) => (
+              <TouchableOpacity
+                key={memory.id}
+                style={styles.historyCard}
+                onPress={() => handleMemoryHistoryPress(memory)}
+                activeOpacity={0.8}
+              >
+                <Image
+                  source={
+                    memory.image
+                      ? { uri: memory.image }
+                      : require('../../../assets/icon.png')
+                  }
+                  style={styles.historyImage}
+                  resizeMode="cover"
+                />
+                
+                <View style={styles.historyContent}>
+                  <Text style={styles.historyDishName} numberOfLines={2}>
+                    {memory.dishName}
+                  </Text>
+                  <Text style={styles.historyDescription} numberOfLines={1}>
+                    {memory.description}
+                  </Text>
+                  <Text style={styles.historyDate}>{memory.date}</Text>
+                </View>
 
-              <TouchableOpacity style={styles.historyButton}>
-                <Text style={styles.historyButtonText}>Open</Text>
+                <TouchableOpacity style={styles.historyButton}>
+                  <Text style={styles.historyButtonText}>Open</Text>
+                </TouchableOpacity>
               </TouchableOpacity>
-            </TouchableOpacity>
-          ))}
+            ))
+          ) : (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>No memories yet.</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.bottomSpacer} />
@@ -356,6 +401,15 @@ const styles = StyleSheet.create({
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.sm),
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
     color: COLORS.pastelOrange.main,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: moderateScale(SPACING.sm),
+  },
+  loadingText: {
+    marginLeft: moderateScale(SPACING.sm),
+    color: COLORS.text.secondary,
   },
   bottomSpacer: {
     height: moderateScale(SPACING['4xl']),

@@ -10,6 +10,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ArrowLeft, MessageCircle, Star } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 
@@ -84,9 +85,14 @@ const PublishedRecipePageScreen: React.FC<PublishedRecipePageScreenProps> = ({
 
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }, (_, index) => (
-      <Text key={index} style={styles.star}>
-        {index < rating ? '⭐' : '☆'}
-      </Text>
+      <Star
+        key={index}
+        size={scaleFontSize(18)}
+        color={index < rating ? COLORS.pastelOrange.main : COLORS.border.light}
+        fill={index < rating ? COLORS.pastelOrange.main : 'transparent'}
+        strokeWidth={1.5}
+        style={styles.star}
+      />
     ));
   };
 
@@ -98,7 +104,10 @@ const PublishedRecipePageScreen: React.FC<PublishedRecipePageScreenProps> = ({
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <View style={styles.backButtonContent}>
+            <ArrowLeft size={scaleFontSize(16)} color={COLORS.pastelOrange.dark} />
+            <Text style={styles.backButtonText}>Back</Text>
+          </View>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Published Recipe</Text>
       </View>
@@ -172,7 +181,12 @@ const PublishedRecipePageScreen: React.FC<PublishedRecipePageScreenProps> = ({
 
           {feedbackList.length === 0 && (
             <View style={styles.noFeedbackCard}>
-              <Text style={styles.noFeedbackIcon}>💬</Text>
+              <MessageCircle
+                size={scaleFontSize(36)}
+                color={COLORS.text.secondary}
+                strokeWidth={1.8}
+                style={styles.noFeedbackIcon}
+              />
               <Text style={styles.noFeedbackText}>No feedback yet</Text>
               <Text style={styles.noFeedbackSubtext}>
                 Be the first to share your experience!
@@ -200,6 +214,11 @@ const styles = StyleSheet.create({
   backButton: {
     padding: moderateScale(SPACING.xs),
     marginBottom: moderateScale(SPACING.sm),
+  },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
   },
   backButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
@@ -255,7 +274,7 @@ const styles = StyleSheet.create({
     marginRight: moderateScale(SPACING.md),
   },
   star: {
-    fontSize: scaleFontSize(20),
+    marginRight: moderateScale(2),
   },
   ratingNumber: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize['2xl']),
@@ -339,7 +358,6 @@ const styles = StyleSheet.create({
     ...SHADOWS.small,
   },
   noFeedbackIcon: {
-    fontSize: scaleFontSize(64),
     marginBottom: moderateScale(SPACING.md),
   },
   noFeedbackText: {

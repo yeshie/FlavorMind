@@ -9,6 +9,17 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  ArrowLeft,
+  BookOpen,
+  ChefHat,
+  ClipboardList,
+  Clock,
+  Flame,
+  Lightbulb,
+  Sparkles,
+  Utensils,
+} from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
@@ -121,9 +132,12 @@ const CookbookRecipePageScreen: React.FC<CookbookRecipePageScreenProps> = ({
           style={styles.backButton}
           onPress={handleBack}
         >
-          <Text style={styles.backButtonText}>
-            ← {isFirstRecipe ? 'Back' : 'Previous'}
-          </Text>
+          <View style={styles.backButtonContent}>
+            <ArrowLeft size={scaleFontSize(16)} color={COLORS.pastelOrange.dark} />
+            <Text style={styles.backButtonText}>
+              {isFirstRecipe ? 'Back' : 'Previous'}
+            </Text>
+          </View>
         </TouchableOpacity>
         
         <View style={styles.pageIndicatorContainer}>
@@ -147,15 +161,15 @@ const CookbookRecipePageScreen: React.FC<CookbookRecipePageScreenProps> = ({
           {/* Recipe Meta Info */}
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
-              <Text style={styles.metaIcon}>⏱️</Text>
+              <Clock size={scaleFontSize(16)} color={COLORS.text.secondary} strokeWidth={2} style={styles.metaIcon} />
               <Text style={styles.metaText}>{currentRecipe.prepTime} min prep</Text>
             </View>
             <View style={styles.metaItem}>
-              <Text style={styles.metaIcon}>🔥</Text>
+              <Flame size={scaleFontSize(16)} color={COLORS.pastelOrange.main} strokeWidth={2} style={styles.metaIcon} />
               <Text style={styles.metaText}>{currentRecipe.cookTime} min cook</Text>
             </View>
             <View style={styles.metaItem}>
-              <Text style={styles.metaIcon}>🍽️</Text>
+              <Utensils size={scaleFontSize(16)} color={COLORS.text.secondary} strokeWidth={2} style={styles.metaIcon} />
               <Text style={styles.metaText}>{currentRecipe.servings} servings</Text>
             </View>
           </View>
@@ -178,7 +192,7 @@ const CookbookRecipePageScreen: React.FC<CookbookRecipePageScreenProps> = ({
           {/* Key Notes Section */}
           <View style={styles.notesSection}>
             <View style={styles.notesSectionHeader}>
-              <Text style={styles.notesIcon}>📝</Text>
+              <ClipboardList size={scaleFontSize(20)} color={COLORS.pastelOrange.main} strokeWidth={2} style={styles.notesIcon} />
               <Text style={styles.notesTitle}>Key Notes for Success</Text>
             </View>
             
@@ -194,7 +208,7 @@ const CookbookRecipePageScreen: React.FC<CookbookRecipePageScreenProps> = ({
 
           {/* Pro Tip Box */}
           <View style={styles.proTipBox}>
-            <Text style={styles.proTipIcon}>💡</Text>
+            <Lightbulb size={scaleFontSize(22)} color={COLORS.pastelYellow.main} strokeWidth={2} style={styles.proTipIcon} />
             <View style={styles.proTipContent}>
               <Text style={styles.proTipTitle}>Pro Tip</Text>
               <Text style={styles.proTipText}>
@@ -206,12 +220,21 @@ const CookbookRecipePageScreen: React.FC<CookbookRecipePageScreenProps> = ({
 
           {/* Navigation Hint */}
           <View style={styles.navigationHint}>
-            <Text style={styles.navigationHintText}>
-              {isLastRecipe 
-                ? '🎉 This is the last recipe. Ready to finish?' 
-                : `📖 ${recipes.length - recipeIndex - 1} more ${recipes.length - recipeIndex - 1 === 1 ? 'recipe' : 'recipes'} to discover!`
-              }
-            </Text>
+            {isLastRecipe ? (
+              <View style={styles.navigationHintRow}>
+                <Sparkles size={scaleFontSize(18)} color={COLORS.pastelOrange.main} strokeWidth={2} />
+                <Text style={styles.navigationHintText}>
+                  This is the last recipe. Ready to finish?
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.navigationHintRow}>
+                <BookOpen size={scaleFontSize(18)} color={COLORS.text.secondary} strokeWidth={2} />
+                <Text style={styles.navigationHintText}>
+                  {recipes.length - recipeIndex - 1} more {recipes.length - recipeIndex - 1 === 1 ? 'recipe' : 'recipes'} to discover!
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -225,7 +248,7 @@ const CookbookRecipePageScreen: React.FC<CookbookRecipePageScreenProps> = ({
           onPress={handleRecreate}
           activeOpacity={0.7}
         >
-          <Text style={styles.secondaryButtonIcon}>🍳</Text>
+          <ChefHat size={scaleFontSize(18)} color={COLORS.text.primary} strokeWidth={2} style={styles.secondaryButtonIcon} />
           <Text style={styles.secondaryButtonText}>Recreate</Text>
         </TouchableOpacity>
         
@@ -235,7 +258,7 @@ const CookbookRecipePageScreen: React.FC<CookbookRecipePageScreenProps> = ({
           onPress={handleNext}
           style={styles.nextButton}
         >
-          {isLastRecipe ? 'Finish ✓' : 'Next →'}
+          {isLastRecipe ? 'Finish' : 'Next'}
         </Button>
       </View>
     </SafeAreaView>
@@ -261,6 +284,11 @@ const styles = StyleSheet.create({
   backButton: {
     padding: moderateScale(SPACING.xs),
     flex: 1,
+  },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
   },
   backButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
@@ -315,7 +343,6 @@ const styles = StyleSheet.create({
     ...SHADOWS.small,
   },
   metaIcon: {
-    fontSize: scaleFontSize(16),
     marginRight: moderateScale(SPACING.xs),
   },
   metaText: {
@@ -369,7 +396,6 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border.light,
   },
   notesIcon: {
-    fontSize: scaleFontSize(28),
     marginRight: moderateScale(SPACING.md),
   },
   notesTitle: {
@@ -416,7 +442,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.pastelYellow.main,
   },
   proTipIcon: {
-    fontSize: scaleFontSize(32),
     marginRight: moderateScale(SPACING.md),
     marginTop: moderateScale(4),
   },
@@ -438,15 +463,18 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.pastelGreen.light + '30',
     padding: moderateScale(SPACING.lg),
     borderRadius: BORDER_RADIUS.lg,
-    alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.pastelGreen.light,
+  },
+  navigationHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
   },
   navigationHintText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
     color: COLORS.text.primary,
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
-    textAlign: 'center',
   },
   footer: {
     flexDirection: 'row',
@@ -470,7 +498,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border.main,
   },
   secondaryButtonIcon: {
-    fontSize: scaleFontSize(20),
     marginRight: moderateScale(SPACING.xs),
   },
   secondaryButtonText: {

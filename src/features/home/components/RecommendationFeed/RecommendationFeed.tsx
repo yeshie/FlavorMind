@@ -50,7 +50,11 @@ const RecommendationFeed: React.FC<RecommendationFeedProps> = ({
           activeOpacity={0.9}
         >
           <ImageBackground
-            source={{ uri: recipe.image }}
+            source={
+              recipe.image
+                ? { uri: recipe.image }
+                : require('../../../../assets/icon.png')
+            }
             style={styles.imageBackground}
             imageStyle={styles.image}
           >

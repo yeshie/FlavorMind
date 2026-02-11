@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
   View,
   RefreshControl,
   Alert,
+  ActivityIndicator,
+  Text,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../../constants/theme';
+import * as Location from 'expo-location';
 
 // Components
 import Header from '../components/Header/Header';
@@ -18,6 +21,10 @@ import RecommendationFeed from '../components/RecommendationFeed/RecommendationF
 
 // Types
 import { SeasonalItem, FeatureItem, RecipeRecommendation } from '../types/home.types';
+import { getCurrentUser } from '../../../services/firebase/authService';
+import recipeService, { Recipe } from '../../../services/api/recipe.service';
+import seasonalService, { SeasonalFood } from '../../../services/api/seasonal.service';
+import userService from '../../../services/api/user.service';
 
 interface HomeScreenProps {
   navigation: any;
@@ -25,46 +32,18 @@ interface HomeScreenProps {
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
-
-  // Mock Data - Replace with API calls
-  const userData = {
-    name: 'Sachini',
-    location: {
-      city: 'Colombo',
-      country: 'Sri Lanka',
-    },
-  };
-
-  const seasonalItems: SeasonalItem[] = [
-    {
-      id: '1',
-      name: 'Rambutan',
-      image: 'https://images.unsplash.com/photo-1580990758000-33f5b22e5da6?w=400',
-      status: 'high-harvest',
-      badge: 'High Harvest',
-    },
-    {
-      id: '2',
-      name: 'Mango',
-      image: 'https://images.unsplash.com/photo-1553279768-865429fa0078?w=400',
-      status: 'low-price',
-      badge: 'Low Price',
-    },
-    {
-      id: '3',
-      name: 'Pumpkin',
-      image: 'https://images.unsplash.com/photo-1570586437263-ab629fccc818?w=400',
-      status: 'high-harvest',
-      badge: 'High Harvest',
-    },
-    {
-      id: '4',
-      name: 'Tomato',
-      image: 'https://images.unsplash.com/photo-1546470427-227a1e3b0080?w=400',
-      status: 'limited',
-      badge: 'Limited',
-    },
-  ];
+  const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState('Guest');
+  const [profileLocation, setProfileLocation] = useState<{ city?: string; country?: string } | undefined>(undefined);
+  const [deviceLocation, setDeviceLocation] = useState<{ city?: string; country?: string } | undefined>(undefined);
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+  const [seasonalItems, setSeasonalItems] = useState<SeasonalItem[]>([]);
+  const [recommendations, setRecommendations] = useState<RecipeRecommendation[]>([]);
+  const [deviceCoords, setDeviceCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const locationToShow = useMemo(
+    () => profileLocation || deviceLocation,
+    [profileLocation, deviceLocation]
+  );
 
   const features: FeatureItem[] = [
     {
@@ -94,46 +73,118 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     },
   ];
 
-  const recommendations: RecipeRecommendation[] = [
-    {
-      id: '1',
-      title: 'Local Herb Infused Grilled Chicken',
-      image: 'https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=800',
-      matchScore: 98,
-      prepTime: 25,
-      difficulty: 'easy',
-      isLocalIngredients: true,
-      tags: ['chicken', 'grilled', 'herbs'],
-    },
-    {
-      id: '2',
-      title: 'Creamy Pumpkin Curry with Coconut',
-      image: 'https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=800',
-      matchScore: 95,
-      prepTime: 35,
-      difficulty: 'medium',
-      isLocalIngredients: true,
-      tags: ['curry', 'pumpkin', 'coconut'],
-    },
-    {
-      id: '3',
-      title: 'Sri Lankan Style Fish Ambul Thiyal',
-      image: 'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=800',
-      matchScore: 92,
-      prepTime: 45,
-      difficulty: 'medium',
-      isLocalIngredients: true,
-      tags: ['fish', 'sour', 'traditional'],
-    },
-  ];
+  const mapSeasonalItem = (item: SeasonalFood): SeasonalItem => {
+    const status = (item.status || 'high-harvest') as SeasonalItem['status'];
+    const badge = item.badge
+      || (status === 'high-harvest' ? 'High Harvest' : status === 'low-price' ? 'Low Price' : 'Limited');
+
+    return {
+      id: item.id,
+      name: item.name,
+      image: item.imageUrl || item.image,
+      status,
+      badge,
+    };
+  };
+
+  const mapRecipeRecommendation = (recipe: Recipe, index: number): RecipeRecommendation => {
+    const matchScore = recipe.matchScore ?? Math.max(75, 95 - index * 5);
+    const prepTime = recipe.prepTime || recipe.cookTime || 0;
+    const difficulty = recipe.difficulty || 'medium';
+    const isLocal = recipe.isLocalIngredients ?? recipe.isLocal ?? false;
+    const tags = recipe.ingredients
+      ? recipe.ingredients.map((ingredient) => ingredient.name).slice(0, 3)
+      : [];
+
+    return {
+      id: recipe.id,
+      title: recipe.title,
+      image: recipe.imageUrl || recipe.image,
+      matchScore,
+      prepTime,
+      difficulty,
+      isLocalIngredients: isLocal,
+      tags,
+    };
+  };
+
+  const loadHomeData = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
+    try {
+      const seasonalParams = {
+        limit: 10,
+        ...(deviceCoords ? { lat: deviceCoords.lat, lng: deviceCoords.lng } : {}),
+      };
+
+      const [profileResult, seasonalResult, recipeResult] = await Promise.allSettled([
+        userService.getProfile(),
+        seasonalService.getSeasonalFoods(seasonalParams),
+        recipeService.getRecipes({ limit: 5 }),
+      ]);
+
+      if (profileResult.status === 'fulfilled') {
+        const profile = profileResult.value?.data?.user;
+        if (profile) {
+          const profileName =
+            profile.displayName ||
+            profile.name ||
+            (profile.email ? profile.email.split('@')[0] : '') ||
+            'Guest';
+          setUserName(profileName);
+          setProfileImageUrl(profile.photoUrl || profile.photoURL || null);
+          if (profile.location) {
+            setProfileLocation({
+              city: profile.location.city,
+              country: profile.location.country,
+            });
+          } else {
+            setProfileLocation(undefined);
+          }
+        } else {
+          setUserName('Guest');
+          setProfileImageUrl(null);
+          setProfileLocation(undefined);
+        }
+      } else {
+        const localUser = await getCurrentUser();
+        const localName =
+          localUser?.displayName ||
+          (localUser?.email ? localUser.email.split('@')[0] : '') ||
+          'Guest';
+        setUserName(localName);
+        setProfileImageUrl(localUser?.photoURL || null);
+        setProfileLocation(undefined);
+      }
+
+      if (seasonalResult.status === 'fulfilled') {
+        const items = seasonalResult.value.data.items || [];
+        setSeasonalItems(items.map(mapSeasonalItem));
+      } else {
+        setSeasonalItems([]);
+      }
+
+      if (recipeResult.status === 'fulfilled') {
+        const recipes = recipeResult.value.data.recipes || [];
+        setRecommendations(recipes.map(mapRecipeRecommendation));
+      } else {
+        setRecommendations([]);
+      }
+    } catch (error) {
+      console.error('Home data load error:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [deviceCoords]);
 
   // Handlers
   const handleRefresh = async () => {
-    setRefreshing(true);
-    // Simulate API call
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 2000);
+    await loadHomeData(true);
   };
 
   const handleNotificationPress = () => {
@@ -175,11 +226,58 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     Alert.alert(recipe.title, 'View recipe details');
   };
 
+  useEffect(() => {
+    loadHomeData();
+  }, [loadHomeData]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadDeviceLocation = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          return;
+        }
+
+        const position = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+        if (isMounted && position?.coords) {
+          setDeviceCoords({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+          const [geo] = await Location.reverseGeocodeAsync({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+          if (geo) {
+            setDeviceLocation({
+              city: geo.city || geo.subregion || geo.region || undefined,
+              country: geo.country || undefined,
+            });
+          }
+        }
+      } catch (error) {
+        console.warn('Location fetch failed:', error);
+      }
+    };
+
+    loadDeviceLocation();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <Header
-        userName={userData.name}
-        location={userData.location}
+        userName={userName}
+        location={locationToShow}
+        profileImageUrl={profileImageUrl}
         onNotificationPress={handleNotificationPress}
         onProfilePress={handleProfilePress}
       />
@@ -195,25 +293,51 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           />
         }
       >
+        {loading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color={COLORS.pastelOrange.main} />
+            <Text style={styles.loadingText}>Loading your feed...</Text>
+          </View>
+        )}
         <MemoryCore
           onGenerate={handleMemoryGenerate}
           onVoicePress={handleVoicePress}
         />
 
-        <SeasonalScroll
-          items={seasonalItems}
-          onItemPress={handleSeasonalItemPress}
-        />
+        {seasonalItems.length > 0 ? (
+          <SeasonalScroll
+            items={seasonalItems}
+            onItemPress={handleSeasonalItemPress}
+          />
+        ) : (
+          !loading && (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>
+                Seasonal ingredients will appear here once available.
+              </Text>
+            </View>
+          )
+        )}
 
         <FeatureGrid
           features={features}
           onFeaturePress={handleFeaturePress}
         />
 
-        <RecommendationFeed
-          recommendations={recommendations}
-          onRecipePress={handleRecipePress}
-        />
+        {recommendations.length > 0 ? (
+          <RecommendationFeed
+            recommendations={recommendations}
+            onRecipePress={handleRecipePress}
+          />
+        ) : (
+          !loading && (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>
+                Personalized recipe recommendations will appear here.
+              </Text>
+            </View>
+          )
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -227,6 +351,23 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
     backgroundColor: COLORS.background.main,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  loadingText: {
+    marginLeft: 10,
+    color: COLORS.text.secondary,
+  },
+  emptyState: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  emptyStateText: {
+    color: COLORS.text.secondary,
   },
 });
 

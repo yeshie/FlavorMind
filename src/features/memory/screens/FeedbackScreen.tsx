@@ -12,9 +12,11 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Bot, Leaf, Lightbulb, Star } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
+import feedbackService from '../../../services/api/feedback.service';
 
 interface FeedbackScreenProps {
   navigation: any;
@@ -22,12 +24,13 @@ interface FeedbackScreenProps {
     params: {
       dishName: string;
       servingSize: number;
+      recipeId?: string;
     };
   };
 }
 
 const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ navigation, route }) => {
-  const { dishName, servingSize } = route.params;
+  const { dishName, servingSize, recipeId } = route.params;
 
   const [rating, setRating] = useState(0);
   const [changes, setChanges] = useState('');
@@ -44,8 +47,21 @@ const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ navigation, route }) =>
     setLoading(true);
 
     try {
-      // TODO: Submit feedback to backend
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const parts = [
+        changes ? `Changes: ${changes}` : '',
+        localImprovements ? `Local Improvements: ${localImprovements}` : '',
+        personalTips ? `Tips: ${personalTips}` : '',
+      ].filter(Boolean);
+      const comment = parts.join('\n');
+
+      if (recipeId) {
+        await feedbackService.submitFeedback(recipeId, {
+          rating,
+          comment,
+        });
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
 
       Alert.alert(
         'Thank You!',
@@ -106,7 +122,14 @@ const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ navigation, route }) =>
         >
           {/* Rating Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>How did it turn out? ⭐</Text>
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionTitle}>How did it turn out?</Text>
+              <Star
+                size={scaleFontSize(18)}
+                color={COLORS.pastelOrange.main}
+                strokeWidth={2}
+              />
+            </View>
             <View style={styles.ratingContainer}>
               {[1, 2, 3, 4, 5].map((star) => (
                 <TouchableOpacity
@@ -114,9 +137,12 @@ const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ navigation, route }) =>
                   onPress={() => setRating(star)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.star}>
-                    {star <= rating ? '⭐' : '☆'}
-                  </Text>
+                  <Star
+                    size={scaleFontSize(32)}
+                    color={star <= rating ? COLORS.pastelOrange.main : COLORS.border.light}
+                    fill={star <= rating ? COLORS.pastelOrange.main : 'transparent'}
+                    strokeWidth={1.5}
+                  />
                 </TouchableOpacity>
               ))}
             </View>
@@ -147,7 +173,14 @@ const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ navigation, route }) =>
 
           {/* Local Ingredients */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Local Ingredient Feedback 🌿</Text>
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionTitle}>Local Ingredient Feedback</Text>
+              <Leaf
+                size={scaleFontSize(18)}
+                color={COLORS.pastelGreen.main}
+                strokeWidth={2}
+              />
+            </View>
             <Text style={styles.sectionDescription}>
               How did the local ingredient suggestions work for you?
             </Text>
@@ -165,7 +198,14 @@ const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ navigation, route }) =>
 
           {/* Personal Tips */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Any tips for others? 💡</Text>
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionTitle}>Any tips for others?</Text>
+              <Lightbulb
+                size={scaleFontSize(18)}
+                color={COLORS.pastelYellow.main}
+                strokeWidth={2}
+              />
+            </View>
             <Text style={styles.sectionDescription}>
               Share your personal cooking tips or insights
             </Text>
@@ -183,7 +223,12 @@ const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ navigation, route }) =>
 
           {/* Info Box */}
           <View style={styles.infoBox}>
-            <Text style={styles.infoIcon}>🤖</Text>
+            <Bot
+              size={scaleFontSize(28)}
+              color={COLORS.text.secondary}
+              strokeWidth={2}
+              style={styles.infoIcon}
+            />
             <View style={styles.infoContent}>
               <Text style={styles.infoTitle}>How this helps</Text>
               <Text style={styles.infoText}>
@@ -254,11 +299,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: moderateScale(SPACING.base),
     marginTop: moderateScale(SPACING.xl),
   },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
+    marginBottom: moderateScale(SPACING.xs),
+  },
   sectionTitle: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.lg),
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.text.primary,
-    marginBottom: moderateScale(SPACING.xs),
   },
   sectionDescription: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.sm),
@@ -270,9 +320,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: moderateScale(SPACING.sm),
     marginVertical: moderateScale(SPACING.lg),
-  },
-  star: {
-    fontSize: scaleFontSize(48),
   },
   ratingText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.lg),
@@ -303,7 +350,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.pastelYellow.main,
   },
   infoIcon: {
-    fontSize: scaleFontSize(32),
     marginRight: moderateScale(SPACING.md),
   },
   infoContent: {

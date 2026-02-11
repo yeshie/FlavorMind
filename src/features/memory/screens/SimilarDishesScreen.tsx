@@ -1,5 +1,5 @@
 // src/features/memory/screens/SimilarDishesScreen.tsx
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -10,14 +10,19 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ArrowLeft, ChefHat, ChevronRight, MapPin } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
+import recipeService, { Recipe } from '../../../services/api/recipe.service';
+import memoryService from '../../../services/api/memory.service';
 
 interface SimilarDishesScreenProps {
   navigation: any;
   route: {
     params: {
-      memoryQuery: string;
+      memoryQuery?: string;
+      memoryId?: string;
+      similarDishes?: any[];
     };
   };
 }
@@ -28,67 +33,127 @@ interface SimilarDish {
   description: string;
   region: string;
   style: string;
-  image: string;
+  image?: string;
   matchScore: number;
 }
 
 const SimilarDishesScreen: React.FC<SimilarDishesScreenProps> = ({ navigation, route }) => {
-  const { memoryQuery } = route.params;
-  const [loading, setLoading] = useState(false);
+  const { memoryQuery, memoryId, similarDishes: initialSimilar } = route.params || {};
+  const [isFetching, setIsFetching] = useState(true);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [isWaitingForAi, setIsWaitingForAi] = useState(false);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const normalizeSimilarDish = (item: any, index: number): SimilarDish => ({
+    id: item?.id || `${index}`,
+    name: item?.name || item?.title || item?.dish || 'Suggested Dish',
+    description: item?.description || item?.summary || 'A delicious recipe tailored to your memory.',
+    region: item?.region || item?.cuisine || 'Unknown region',
+    style: item?.style || item?.category || 'Signature Recipe',
+    image: item?.image || item?.imageUrl,
+    matchScore: item?.matchScore ?? item?.match_score ?? item?.score ?? Math.max(70, 95 - index * 5),
+  });
 
-  // Mock similar dishes - In production, this comes from AI
-  const similarDishes: SimilarDish[] = [
-    {
-      id: '1',
-      name: 'Maldive Fish Curry (Mas Riha)',
-      description: 'Traditional Sri Lankan fish curry with coconut milk, goraka (garcinia), and aromatic spices. Known for its sour and spicy flavor profile.',
-      region: 'Southern Sri Lanka',
-      style: 'Traditional Home Cooking',
-      image: 'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=800',
-      matchScore: 98,
-    },
-    {
-      id: '2',
-      name: 'Ambul Thiyal (Sour Fish Curry)',
-      description: 'Dry fish curry with goraka, giving it a distinctive sour taste. A beloved traditional dish from coastal regions.',
-      region: 'Coastal Sri Lanka',
-      style: 'Heritage Recipe',
-      image: 'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=800',
-      matchScore: 95,
-    },
-    {
-      id: '3',
-      name: 'Fish Curry with Coconut Milk',
-      description: 'Creamy coconut-based fish curry with turmeric, curry leaves, and pandan. A comfort food classic.',
-      region: 'Western Sri Lanka',
-      style: 'Home Style Cooking',
-      image: 'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=800',
-      matchScore: 92,
-    },
-    {
-      id: '4',
-      name: 'Spicy Tuna Curry',
-      description: 'Bold and spicy tuna curry with red chili, black pepper, and fenugreek. Perfect with rice.',
-      region: 'Northern Sri Lanka',
-      style: 'Regional Specialty',
-      image: 'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=800',
-      matchScore: 88,
-    },
-  ];
+  const [similarDishes, setSimilarDishes] = useState<SimilarDish[]>(
+    Array.isArray(initialSimilar) ? initialSimilar.map(normalizeSimilarDish) : []
+  );
+
+  const mapRecipeToSimilarDish = (recipe: Recipe, index: number): SimilarDish => ({
+    id: recipe.id,
+    name: recipe.title,
+    description: recipe.description || 'A delicious recipe tailored to your memory.',
+    region: recipe.region || recipe.cuisine || 'Unknown region',
+    style: recipe.style || recipe.category || 'Signature Recipe',
+    image: recipe.imageUrl || recipe.image,
+    matchScore: recipe.matchScore ?? Math.max(70, 95 - index * 5),
+  });
+
+  const loadSimilarDishes = useCallback(async () => {
+    if (similarDishes.length > 0) {
+      setIsFetching(false);
+      return;
+    }
+
+    setIsFetching(true);
+    setIsWaitingForAi(false);
+    try {
+      if (memoryId) {
+        try {
+          const memoryResponse = await memoryService.getMemory(memoryId);
+          const memory = memoryResponse.data.memory as any;
+          const memorySimilar = memory?.similarDishes || memory?.generatedRecipe?.similarDishes;
+          if (Array.isArray(memorySimilar) && memorySimilar.length > 0) {
+            setSimilarDishes(memorySimilar.map(normalizeSimilarDish));
+            setIsFetching(false);
+            return;
+          }
+
+          if (memory?.status === 'processing') {
+            setIsFetching(false);
+            setIsWaitingForAi(true);
+            if (pollTimerRef.current) {
+              clearTimeout(pollTimerRef.current);
+            }
+            pollTimerRef.current = setTimeout(() => {
+              loadSimilarDishes();
+            }, 2500);
+            return;
+          }
+
+          setIsFetching(false);
+          setIsWaitingForAi(false);
+          return;
+        } catch (error) {
+          console.error('Load memory similar dishes error:', error);
+          setIsFetching(false);
+          setIsWaitingForAi(true);
+          if (pollTimerRef.current) {
+            clearTimeout(pollTimerRef.current);
+          }
+          pollTimerRef.current = setTimeout(() => {
+            loadSimilarDishes();
+          }, 3000);
+          return;
+        }
+      }
+
+      const response = await recipeService.getSimilarRecipes({
+        q: memoryQuery,
+        limit: 6,
+      });
+      const recipes = response.data.recipes || [];
+      setSimilarDishes(recipes.map(mapRecipeToSimilarDish));
+    } catch (error) {
+      console.error('Similar dishes load error:', error);
+      setSimilarDishes([]);
+    } finally {
+      if (!memoryId) {
+        setIsFetching(false);
+      }
+    }
+  }, [memoryId, memoryQuery, similarDishes.length]);
 
   const handleDishSelect = (dish: SimilarDish) => {
-    setLoading(true);
-    
-    // Simulate AI processing
+    setIsSelecting(true);
     setTimeout(() => {
-      setLoading(false);
       navigation.navigate('RecipeCustomization', {
         dishId: dish.id,
         dishName: dish.name,
         memoryQuery: memoryQuery,
       });
-    }, 1500);
+    }, 300);
   };
+
+  useEffect(() => {
+    loadSimilarDishes();
+  }, [loadSimilarDishes]);
+
+  useEffect(() => {
+    return () => {
+      if (pollTimerRef.current) {
+        clearTimeout(pollTimerRef.current);
+      }
+    };
+  }, []);
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -98,7 +163,10 @@ const SimilarDishesScreen: React.FC<SimilarDishesScreenProps> = ({ navigation, r
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <View style={styles.backButtonContent}>
+            <ArrowLeft size={scaleFontSize(16)} color={COLORS.pastelOrange.dark} />
+            <Text style={styles.backButtonText}>Back</Text>
+          </View>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Similar Dishes Found</Text>
       </View>
@@ -114,59 +182,81 @@ const SimilarDishesScreen: React.FC<SimilarDishesScreenProps> = ({ navigation, r
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.dishesContainer}>
-          {similarDishes.map((dish) => (
-            <TouchableOpacity
-              key={dish.id}
-              style={styles.dishCard}
-              onPress={() => handleDishSelect(dish)}
-              activeOpacity={0.9}
-            >
-              {/* Match Score Badge */}
-              <View style={styles.matchBadge}>
-                <Text style={styles.matchText}>{dish.matchScore}% Match</Text>
-              </View>
-
-              {/* Dish Image */}
-              <Image
-                source={{ uri: dish.image }}
-                style={styles.dishImage}
-                resizeMode="cover"
-              />
-
-              {/* Dish Info */}
-              <View style={styles.dishInfo}>
-                <Text style={styles.dishName}>{dish.name}</Text>
-                
-                <View style={styles.metaTags}>
-                  <View style={styles.metaTag}>
-                    <Text style={styles.metaIcon}>📍</Text>
-                    <Text style={styles.metaText}>{dish.region}</Text>
-                  </View>
-                  <View style={styles.metaTag}>
-                    <Text style={styles.metaIcon}>👨‍🍳</Text>
-                    <Text style={styles.metaText}>{dish.style}</Text>
-                  </View>
+          {isFetching ? (
+            <View style={styles.loadingInline}>
+              <ActivityIndicator size="small" color={COLORS.pastelOrange.main} />
+              <Text style={styles.loadingInlineText}>Searching similar dishes...</Text>
+            </View>
+          ) : similarDishes.length > 0 ? (
+            similarDishes.map((dish) => (
+              <TouchableOpacity
+                key={dish.id}
+                style={styles.dishCard}
+                onPress={() => handleDishSelect(dish)}
+                activeOpacity={0.9}
+              >
+                {/* Match Score Badge */}
+                <View style={styles.matchBadge}>
+                  <Text style={styles.matchText}>{dish.matchScore}% Match</Text>
                 </View>
 
-                <Text style={styles.dishDescription}>{dish.description}</Text>
+                {/* Dish Image */}
+                <Image
+                  source={
+                    dish.image
+                      ? { uri: dish.image }
+                      : require('../../../assets/icon.png')
+                  }
+                  style={styles.dishImage}
+                  resizeMode="cover"
+                />
 
-                <View style={styles.selectButton}>
-                  <Text style={styles.selectButtonText}>Select This Dish →</Text>
+                {/* Dish Info */}
+                <View style={styles.dishInfo}>
+                  <Text style={styles.dishName}>{dish.name}</Text>
+                  
+                  <View style={styles.metaTags}>
+                    <View style={styles.metaTag}>
+                      <MapPin size={scaleFontSize(14)} color={COLORS.text.secondary} strokeWidth={2} style={styles.metaIcon} />
+                      <Text style={styles.metaText}>{dish.region}</Text>
+                    </View>
+                    <View style={styles.metaTag}>
+                      <ChefHat size={scaleFontSize(14)} color={COLORS.text.secondary} strokeWidth={2} style={styles.metaIcon} />
+                      <Text style={styles.metaText}>{dish.style}</Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.dishDescription}>{dish.description}</Text>
+
+                  <View style={styles.selectButton}>
+                    <View style={styles.selectButtonContent}>
+                      <Text style={styles.selectButtonText}>Select This Dish</Text>
+                      <ChevronRight size={scaleFontSize(16)} color={COLORS.text.white} />
+                    </View>
+                  </View>
                 </View>
-              </View>
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={styles.loadingInline}>
+              <Text style={styles.loadingInlineText}>
+                {isWaitingForAi ? 'Generating similar dishes...' : 'No similar dishes found yet.'}
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
       {/* Loading Overlay */}
-      {loading && (
+      {(isFetching || isSelecting) && (
         <View style={styles.loadingOverlay}>
           <View style={styles.loadingCard}>
             <ActivityIndicator size="large" color={COLORS.pastelOrange.main} />
-            <Text style={styles.loadingText}>Preparing your recipe...</Text>
+            <Text style={styles.loadingText}>
+              {isSelecting ? 'Preparing your recipe...' : 'Loading suggestions...'}
+            </Text>
           </View>
         </View>
       )}
@@ -186,6 +276,11 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginBottom: moderateScale(SPACING.md),
+  },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
   },
   backButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
@@ -280,7 +375,6 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.sm,
   },
   metaIcon: {
-    fontSize: scaleFontSize(12),
     marginRight: moderateScale(4),
   },
   metaText: {
@@ -299,6 +393,11 @@ const styles = StyleSheet.create({
     paddingVertical: moderateScale(SPACING.md),
     borderRadius: BORDER_RADIUS.md,
     alignItems: 'center',
+  },
+  selectButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
   },
   selectButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
@@ -323,6 +422,15 @@ const styles = StyleSheet.create({
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
     color: COLORS.text.primary,
     fontWeight: TYPOGRAPHY.fontWeight.medium,
+  },
+  loadingInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: moderateScale(SPACING.sm),
+  },
+  loadingInlineText: {
+    marginLeft: moderateScale(SPACING.sm),
+    color: COLORS.text.secondary,
   },
   bottomSpacer: {
     height: moderateScale(SPACING['4xl']),

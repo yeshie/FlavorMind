@@ -15,7 +15,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.flavormind.app",
-      "icon": "./src/assets/icon.png"
+      "icon": "./src/assets/icon.png",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "FlavorMind uses your location to show seasonal foods near you.",
+        "NSPhotoLibraryUsageDescription": "FlavorMind needs access to your photos to upload recipe images."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +28,13 @@
       },
       "package": "com.flavormind.app",
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "READ_MEDIA_IMAGES",
+        "READ_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "favicon": "./src/assets/icon.png",

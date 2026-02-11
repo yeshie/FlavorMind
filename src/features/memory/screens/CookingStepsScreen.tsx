@@ -20,6 +20,9 @@ interface CookingStepsScreenProps {
       dishName: string;
       servingSize: number;
       ingredients: any[];
+      instructions?: string[];
+      totalCookTime?: number;
+      recipeId?: string;
     };
   };
 }
@@ -33,10 +36,16 @@ interface CookingStep {
 }
 
 const CookingStepsScreen: React.FC<CookingStepsScreenProps> = ({ navigation, route }) => {
-  const { dishName, servingSize, ingredients } = route.params;
+  const {
+    dishName,
+    servingSize,
+    ingredients,
+    instructions = [],
+    totalCookTime,
+    recipeId,
+  } = route.params;
 
-  // Mock cooking steps - In production, comes from AI
-  const [steps, setSteps] = useState<CookingStep[]>([
+  const mockSteps: CookingStep[] = [
     {
       id: '1',
       stepNumber: 1,
@@ -47,7 +56,7 @@ const CookingStepsScreen: React.FC<CookingStepsScreenProps> = ({ navigation, rou
     {
       id: '2',
       stepNumber: 2,
-      instruction: 'Heat oil in a clay pot or deep pan. Add sliced onions and curry leaves. Sauté until onions are golden brown.',
+      instruction: 'Heat oil in a clay pot or deep pan. Add sliced onions and curry leaves. Saute until onions are golden brown.',
       duration: 8,
       completed: false,
     },
@@ -86,9 +95,22 @@ const CookingStepsScreen: React.FC<CookingStepsScreenProps> = ({ navigation, rou
       duration: 5,
       completed: false,
     },
-  ]);
+  ];
 
-  const totalTime = steps.reduce((acc, step) => acc + (step.duration || 0), 0);
+  const initialSteps: CookingStep[] =
+    instructions.length > 0
+      ? instructions.map((instruction, index) => ({
+          id: `${index}`,
+          stepNumber: index + 1,
+          instruction,
+          completed: false,
+        }))
+      : mockSteps;
+
+  const [steps, setSteps] = useState<CookingStep[]>(initialSteps);
+
+  const fallbackTime = steps.reduce((acc, step) => acc + (step.duration || 0), 0) || 30;
+  const totalTime = totalCookTime && totalCookTime > 0 ? totalCookTime : fallbackTime;
   const completedSteps = steps.filter(s => s.completed).length;
   const progress = (completedSteps / steps.length) * 100;
 
@@ -109,19 +131,21 @@ const CookingStepsScreen: React.FC<CookingStepsScreenProps> = ({ navigation, rou
           { text: 'Go Back', style: 'cancel' },
           {
             text: 'Continue',
-            onPress: () => navigation.navigate('CookingTimer', {
+            onPress: () => navigation.navigate('Done', {
               dishName,
-              totalCookTime: totalTime,
               servingSize,
+              totalCookTime: totalTime,
+              recipeId,
             }),
           },
         ]
       );
     } else {
-      navigation.navigate('CookingTimer', {
+      navigation.navigate('Done', {
         dishName,
-        totalCookTime: totalTime,
         servingSize,
+        totalCookTime: totalTime,
+        recipeId,
       });
     }
   };
@@ -134,7 +158,7 @@ const CookingStepsScreen: React.FC<CookingStepsScreenProps> = ({ navigation, rou
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <Text style={styles.backButtonText}>{'<- Back'}</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Cooking Steps</Text>
       </View>
@@ -145,7 +169,7 @@ const CookingStepsScreen: React.FC<CookingStepsScreenProps> = ({ navigation, rou
           <Text style={styles.progressText}>
             {completedSteps} of {steps.length} steps completed
           </Text>
-          <Text style={styles.timeText}>⏱ {totalTime} mins total</Text>
+          <Text style={styles.timeText}>Time {totalTime} mins total</Text>
         </View>
         <View style={styles.progressBarContainer}>
           <View style={[styles.progressBar, { width: `${progress}%` }]} />
@@ -174,7 +198,7 @@ const CookingStepsScreen: React.FC<CookingStepsScreenProps> = ({ navigation, rou
                   step.completed && styles.stepNumberCompleted,
                 ]}>
                   {step.completed ? (
-                    <Text style={styles.checkmark}>✓</Text>
+                    <Text style={styles.checkmark}>X</Text>
                   ) : (
                     <Text style={styles.stepNumberText}>{step.stepNumber}</Text>
                   )}
@@ -182,7 +206,7 @@ const CookingStepsScreen: React.FC<CookingStepsScreenProps> = ({ navigation, rou
                 
                 {step.duration && (
                   <View style={styles.durationBadge}>
-                    <Text style={styles.durationText}>⏱ {step.duration} min</Text>
+                    <Text style={styles.durationText}>Time {step.duration} min</Text>
                   </View>
                 )}
               </View>
@@ -200,7 +224,7 @@ const CookingStepsScreen: React.FC<CookingStepsScreenProps> = ({ navigation, rou
                   step.completed && styles.checkboxChecked,
                 ]}>
                   {step.completed && (
-                    <Text style={styles.checkboxCheck}>✓</Text>
+                    <Text style={styles.checkboxCheck}>X</Text>
                   )}
                 </View>
                 <Text style={styles.checkboxLabel}>
@@ -222,7 +246,7 @@ const CookingStepsScreen: React.FC<CookingStepsScreenProps> = ({ navigation, rou
           fullWidth
           onPress={handleStartTimer}
         >
-          Start Cooking Timer →
+          Finish Steps ->
         </Button>
       </View>
     </SafeAreaView>

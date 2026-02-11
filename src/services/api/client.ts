@@ -9,6 +9,38 @@ const API_BASE_URL = __DEV__
   : 'https://your-production-url.com/api/v1'; // Production
 
 
+const FIREBASE_API_KEY = process.env.EXPO_PUBLIC_FIREBASE_API_KEY || '';
+const FIREBASE_REFRESH_URL = 'https://securetoken.googleapis.com/v1/token';
+
+const refreshAuthToken = async () => {
+  const refreshToken = await AsyncStorage.getItem('refreshToken');
+  if (!refreshToken || !FIREBASE_API_KEY) {
+    throw new Error('Missing refresh token or Firebase API key');
+  }
+
+  const response = await fetch(`${FIREBASE_REFRESH_URL}?key=${FIREBASE_API_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}`,
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.error?.message || 'Token refresh failed');
+  }
+
+  const newToken = data.id_token;
+  const newRefreshToken = data.refresh_token;
+  if (newToken) {
+    await AsyncStorage.setItem('authToken', newToken);
+  }
+  if (newRefreshToken) {
+    await AsyncStorage.setItem('refreshToken', newRefreshToken);
+  }
+
+  return newToken;
+};
+
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -33,7 +65,7 @@ apiClient.interceptors.request.use(
     
     // Log request in development
     if (__DEV__) {
-      console.log(`📤 ${config.method?.toUpperCase()} ${config.url}`, config.data);
+      console.log(`[req] ${config.method?.toUpperCase()} ${config.url}`, config.data);
     }
     
     return config;
@@ -48,23 +80,36 @@ apiClient.interceptors.response.use(
   (response: AxiosResponse) => {
     // Log response in development
     if (__DEV__) {
-      console.log(`📥 ${response.config.method?.toUpperCase()} ${response.config.url}`, response.data);
+      console.log(`[res] ${response.config.method?.toUpperCase()} ${response.config.url}`, response.data);
     }
     return response;
   },
   async (error: AxiosError) => {
     if (__DEV__) {
-      console.error('❌ API Error:', error.response?.data || error.message);
+      console.error('API Error:', error.response?.data || error.message);
     }
 
     // Handle specific error cases
     if (error.response) {
       const status = error.response.status;
+      const originalRequest: any = error.config;
       
       // Unauthorized - Clear token and redirect to login
-      if (status === 401) {
-        await AsyncStorage.removeItem('authToken');
-        // TODO: Navigate to login screen
+      if (status === 401 && originalRequest && !originalRequest._retry) {
+        originalRequest._retry = true;
+        try {
+          const newToken = await refreshAuthToken();
+          if (newToken) {
+            originalRequest.headers = {
+              ...originalRequest.headers,
+              Authorization: `Bearer ${newToken}`,
+            };
+            return apiClient(originalRequest);
+          }
+        } catch (refreshError) {
+          await AsyncStorage.removeItem('authToken');
+          await AsyncStorage.removeItem('refreshToken');
+        }
       }
       
       // Forbidden

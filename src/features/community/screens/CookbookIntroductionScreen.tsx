@@ -9,6 +9,7 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ArrowLeft, BookOpen, ChefHat, Sparkles } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
@@ -52,7 +53,10 @@ const CookbookIntroductionScreen: React.FC<CookbookIntroductionScreenProps> = ({
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <View style={styles.backButtonContent}>
+            <ArrowLeft size={scaleFontSize(16)} color={COLORS.pastelOrange.dark} />
+            <Text style={styles.backButtonText}>Back</Text>
+          </View>
         </TouchableOpacity>
         <Text style={styles.pageIndicator}>Introduction</Text>
         <View style={styles.placeholder} />
@@ -86,7 +90,7 @@ const CookbookIntroductionScreen: React.FC<CookbookIntroductionScreenProps> = ({
           <Text style={styles.introText}>
             Growing up in Sri Lanka, food was always the heart of our family gatherings. 
             The aroma of freshly ground spices, the sizzle of curry leaves in hot oil, 
-            and the warmth of sharing meals with loved ones—these are the memories that 
+            and the warmth of sharing meals with loved ones--these are the memories that 
             inspired this cookbook.
           </Text>
 
@@ -98,15 +102,20 @@ const CookbookIntroductionScreen: React.FC<CookbookIntroductionScreenProps> = ({
 
           {/* Highlight Box */}
           <View style={styles.highlightBox}>
-            <Text style={styles.highlightIcon}>🌟</Text>
+            <Sparkles
+              size={scaleFontSize(28)}
+              color={COLORS.pastelOrange.main}
+              strokeWidth={2}
+              style={styles.highlightIcon}
+            />
             <View style={styles.highlightContent}>
               <Text style={styles.highlightTitle}>What Makes This Special</Text>
               <Text style={styles.highlightText}>
-                • Authentic family recipes passed down through generations{'\n'}
-                • Local ingredient alternatives and substitutes{'\n'}
-                • Step-by-step guidance with helpful tips{'\n'}
-                • Cultural insights and cooking techniques{'\n'}
-                • Beautiful photography for every dish
+                - Authentic family recipes passed down through generations{'\n'}
+                - Local ingredient alternatives and substitutes{'\n'}
+                - Step-by-step guidance with helpful tips{'\n'}
+                - Cultural insights and cooking techniques{'\n'}
+                - Beautiful photography for every dish
               </Text>
             </View>
           </View>
@@ -119,7 +128,7 @@ const CookbookIntroductionScreen: React.FC<CookbookIntroductionScreenProps> = ({
           </Text>
 
           <Text style={styles.introText}>
-            I believe that cooking is not just about following instructions—it's about 
+            I believe that cooking is not just about following instructions--it's about 
             understanding the ingredients, feeling the textures, and tasting as you go. 
             Let's embark on this flavorful journey together!
           </Text>
@@ -127,7 +136,12 @@ const CookbookIntroductionScreen: React.FC<CookbookIntroductionScreenProps> = ({
           {/* Journey Info Box */}
           <View style={styles.journeyBox}>
             <View style={styles.journeyHeader}>
-              <Text style={styles.journeyIcon}>📖</Text>
+              <BookOpen
+                size={scaleFontSize(24)}
+                color={COLORS.pastelOrange.main}
+                strokeWidth={2}
+                style={styles.journeyIcon}
+              />
               <Text style={styles.journeyTitle}>What's Ahead</Text>
             </View>
             <View style={styles.journeyStats}>
@@ -149,7 +163,7 @@ const CookbookIntroductionScreen: React.FC<CookbookIntroductionScreenProps> = ({
           {/* Closing Message */}
           <View style={styles.closingCard}>
             <Text style={styles.closingText}>
-              Ready to start cooking? Turn the page to discover your first recipe!
+              Ready to start cooking-- Turn the page to discover your first recipe!
             </Text>
           </View>
         </View>
@@ -164,7 +178,12 @@ const CookbookIntroductionScreen: React.FC<CookbookIntroductionScreenProps> = ({
           onPress={handleRecreate}
           activeOpacity={0.7}
         >
-          <Text style={styles.secondaryButtonIcon}>🍳</Text>
+          <ChefHat
+            size={scaleFontSize(18)}
+            color={COLORS.text.primary}
+            strokeWidth={2}
+            style={styles.secondaryButtonIcon}
+          />
           <Text style={styles.secondaryButtonText}>Recreate Recipe</Text>
         </TouchableOpacity>
         
@@ -174,7 +193,7 @@ const CookbookIntroductionScreen: React.FC<CookbookIntroductionScreenProps> = ({
           onPress={handleNext}
           style={styles.nextButton}
         >
-          Next →
+          Next
         </Button>
       </View>
     </SafeAreaView>
@@ -200,6 +219,11 @@ const styles = StyleSheet.create({
   backButton: {
     padding: moderateScale(SPACING.xs),
     flex: 1,
+  },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
   },
   backButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
@@ -280,7 +304,6 @@ const styles = StyleSheet.create({
     ...SHADOWS.small,
   },
   highlightIcon: {
-    fontSize: scaleFontSize(40),
     marginRight: moderateScale(SPACING.md),
     marginTop: moderateScale(4),
   },
@@ -314,7 +337,6 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border.light,
   },
   journeyIcon: {
-    fontSize: scaleFontSize(32),
     marginRight: moderateScale(SPACING.md),
   },
   journeyTitle: {
@@ -377,7 +399,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border.main,
   },
   secondaryButtonIcon: {
-    fontSize: scaleFontSize(20),
     marginRight: moderateScale(SPACING.xs),
   },
   secondaryButtonText: {

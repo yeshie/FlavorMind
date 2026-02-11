@@ -12,7 +12,7 @@ directories.forEach(dir => {
   const dirPath = path.join(__dirname, dir);
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
-    console.log(`✓ Created directory: ${dir}`);
+    console.log(`[ok] Created directory: ${dir}`);
   }
 });
 
@@ -44,7 +44,7 @@ iconFiles.forEach(file => {
   const filePath = path.join(__dirname, 'assets', 'icons', file);
   if (!fs.existsSync(filePath)) {
     fs.writeFileSync(filePath, transparentPng);
-    console.log(`✓ Created icon: ${file}`);
+    console.log(`[ok] Created icon: ${file}`);
   }
 });
 
@@ -60,9 +60,9 @@ appIconFiles.forEach(file => {
   const filePath = path.join(__dirname, 'assets', file);
   if (!fs.existsSync(filePath)) {
     fs.writeFileSync(filePath, transparentPng);
-    console.log(`✓ Created app icon: ${file}`);
+    console.log(`[ok] Created app icon: ${file}`);
   }
 });
 
-console.log('\n✅ Asset setup complete!');
+console.log('\nAsset setup complete!');
 console.log('\nNote: These are placeholder assets. Replace them with actual images for production.');
