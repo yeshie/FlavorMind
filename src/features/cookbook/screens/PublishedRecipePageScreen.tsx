@@ -1,5 +1,5 @@
 // src/features/cookbook/screens/PublishedRecipePageScreen.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,14 @@ import {
   StyleSheet,
   Image,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, MessageCircle, Star } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
+import feedbackStore, { FirestoreFeedback } from '../../../services/firebase/feedbackStore';
+import { hasFirebaseConfig } from '../../../services/firebase/firebase';
 
 interface PublishedRecipePageScreenProps {
   navigation: any;
@@ -38,49 +41,93 @@ const PublishedRecipePageScreen: React.FC<PublishedRecipePageScreenProps> = ({
 }) => {
   const { recipe } = route.params;
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingFeedback, setLoadingFeedback] = useState(false);
+  const [feedbackList, setFeedbackList] = useState<Feedback[]>([]);
 
-  // Mock feedback data
-  const feedbackList: Feedback[] = [
-    {
-      id: '1',
-      userName: 'Amara Perera',
-      userAvatar: 'https://i.pravatar.cc/150?img=1',
-      rating: 5,
-      comment: 'This is absolutely delicious! Made it for my family and everyone loved it. The instructions were clear and easy to follow.',
-      createdAt: '2 days ago',
-    },
-    {
-      id: '2',
-      userName: 'Kasun Silva',
-      userAvatar: 'https://i.pravatar.cc/150?img=2',
-      rating: 4,
-      comment: 'Great recipe! I added a bit more chili and it was perfect. Thanks for sharing!',
-      createdAt: '5 days ago',
-    },
-    {
-      id: '3',
-      userName: 'Nisha Fernando',
-      userAvatar: 'https://i.pravatar.cc/150?img=3',
-      rating: 5,
-      comment: 'Perfect! Exactly what I was looking for. The taste is authentic and reminds me of my grandmother\'s cooking.',
-      createdAt: '1 week ago',
-    },
-    {
-      id: '4',
-      userName: 'Dilshan Raj',
-      userAvatar: 'https://i.pravatar.cc/150?img=4',
-      rating: 5,
-      comment: 'Excellent recipe. Very well explained. Made it twice already!',
-      createdAt: '2 weeks ago',
-    },
-  ];
+  const formatTimeAgo = (value?: unknown) => {
+    if (!value) return 'Just now';
+    let date: Date | null = null;
 
-  const averageRating = recipe.rating || 4.9;
-  const totalFeedback = recipe.feedbackCount || feedbackList.length;
+    if (value instanceof Date) {
+      date = value;
+    } else if (typeof value === 'string') {
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) {
+        date = parsed;
+      }
+    } else if (typeof value === 'object' && value) {
+      const anyValue = value as { toDate?: () => Date; toMillis?: () => number };
+      if (typeof anyValue.toDate === 'function') {
+        date = anyValue.toDate();
+      } else if (typeof anyValue.toMillis === 'function') {
+        date = new Date(anyValue.toMillis());
+      }
+    }
+
+    if (!date) return 'Just now';
+    const diffMs = Date.now() - date.getTime();
+    const minutes = Math.floor(diffMs / 60000);
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes} min ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  const mapFeedback = (feedback: FirestoreFeedback): Feedback => ({
+    id: feedback.id,
+    userName: feedback.userName || 'Anonymous',
+    userAvatar: feedback.userAvatar || '',
+    rating: feedback.rating,
+    comment: feedback.publicComment || feedback.comment || '',
+    createdAt: formatTimeAgo(feedback.createdAt),
+  });
+
+  const loadFeedback = async (isRefresh = false) => {
+    if (!hasFirebaseConfig || !recipe?.id) {
+      setFeedbackList([]);
+      setLoadingFeedback(false);
+      setRefreshing(false);
+      return;
+    }
+
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoadingFeedback(true);
+    }
+
+    try {
+      const feedbackDocs = await feedbackStore.getRecipeFeedback(recipe.id);
+      setFeedbackList(feedbackDocs.map(mapFeedback));
+    } catch (error) {
+      console.error('Feedback load error:', error);
+      setFeedbackList([]);
+    } finally {
+      setLoadingFeedback(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadFeedback();
+  }, [recipe?.id]);
+
+  const averageRating = useMemo(() => {
+    if (typeof recipe?.rating === 'number') return recipe.rating;
+    if (feedbackList.length === 0) return 0;
+    const total = feedbackList.reduce((sum, item) => sum + item.rating, 0);
+    return total / feedbackList.length;
+  }, [recipe?.rating, feedbackList]);
+
+  const totalFeedback = recipe?.feedbackCount ?? feedbackList.length;
+  const dishName = recipe?.dishName || recipe?.title || 'Recipe';
+  const dishImage = recipe?.dishImage || recipe?.imageUrl || recipe?.image || '';
 
   const handleRefresh = async () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 2000);
+    await loadFeedback(true);
   };
 
   const renderStars = (rating: number) => {
@@ -121,14 +168,18 @@ const PublishedRecipePageScreen: React.FC<PublishedRecipePageScreenProps> = ({
       >
         {/* Recipe Image */}
         <Image
-          source={{ uri: recipe.dishImage }}
+          source={
+            dishImage
+              ? { uri: dishImage }
+              : require('../../../assets/icon.png')
+          }
           style={styles.recipeImage}
           resizeMode="cover"
         />
 
         {/* Recipe Info Card */}
         <View style={styles.infoCard}>
-          <Text style={styles.dishTitle}>{recipe.dishName}</Text>
+          <Text style={styles.dishTitle}>{dishName}</Text>
           
           <Text style={styles.description}>
             {recipe.description || 'A delicious traditional recipe that has been loved by many. Perfect for family gatherings and special occasions.'}
@@ -140,7 +191,9 @@ const PublishedRecipePageScreen: React.FC<PublishedRecipePageScreenProps> = ({
               <View style={styles.starsRow}>
                 {renderStars(Math.round(averageRating))}
               </View>
-              <Text style={styles.ratingNumber}>{averageRating.toFixed(1)}</Text>
+              <Text style={styles.ratingNumber}>
+                {averageRating > 0 ? averageRating.toFixed(1) : '--'}
+              </Text>
             </View>
             <View style={styles.ratingRight}>
               <Text style={styles.feedbackCount}>
@@ -157,11 +210,22 @@ const PublishedRecipePageScreen: React.FC<PublishedRecipePageScreenProps> = ({
             <Text style={styles.feedbackSubtitle}>What others are saying</Text>
           </View>
 
+          {loadingFeedback && (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator size="small" color={COLORS.pastelOrange.main} />
+              <Text style={styles.loadingText}>Loading feedback...</Text>
+            </View>
+          )}
+
           {feedbackList.map((feedback) => (
             <View key={feedback.id} style={styles.feedbackCard}>
               <View style={styles.feedbackUserRow}>
                 <Image
-                  source={{ uri: feedback.userAvatar }}
+                  source={
+                    feedback.userAvatar
+                      ? { uri: feedback.userAvatar }
+                      : require('../../../assets/icons/user.png')
+                  }
                   style={styles.userAvatar}
                   resizeMode="cover"
                 />
@@ -179,7 +243,7 @@ const PublishedRecipePageScreen: React.FC<PublishedRecipePageScreenProps> = ({
             </View>
           ))}
 
-          {feedbackList.length === 0 && (
+          {!loadingFeedback && feedbackList.length === 0 && (
             <View style={styles.noFeedbackCard}>
               <MessageCircle
                 size={scaleFontSize(36)}
@@ -290,6 +354,16 @@ const styles = StyleSheet.create({
   feedbackSection: {
     marginTop: moderateScale(SPACING.xl),
     paddingHorizontal: moderateScale(SPACING.base),
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
+    marginBottom: moderateScale(SPACING.md),
+  },
+  loadingText: {
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.sm),
+    color: COLORS.text.secondary,
   },
   feedbackHeader: {
     marginBottom: moderateScale(SPACING.lg),

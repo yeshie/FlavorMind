@@ -131,10 +131,7 @@ const OTPLoginScreen: React.FC<OTPLoginScreenProps> = ({ navigation }) => {
       const formattedPhone = formatPhoneNumber(phoneNumber);
       const response = await verifyOTP(formattedPhone, otpString);
 
-      if (response.success) {
-        Alert.alert('Success', 'Login successful!');
-        // Navigation will be handled by RootNavigator
-      } else {
+      if (!response.success) {
         Alert.alert('Error', response.message || 'Invalid OTP');
         setOtp(['', '', '', '', '', '']);
         otpInputs.current[0]?.focus();

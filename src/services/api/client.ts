@@ -1,12 +1,10 @@
 // src/services/api/client.ts
 import axios, { AxiosInstance, AxiosError, AxiosResponse } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_CONFIG } from '../../constants/config';
 
 // API Configuration
-// src/services/api/client.ts
-const API_BASE_URL = __DEV__ 
-  ? 'http://192.168.8.218:5000/api/v1'  // Use your computer's IP for iPhone
-  : 'https://your-production-url.com/api/v1'; // Production
+const API_BASE_URL = API_CONFIG.BASE_URL;
 
 
 const FIREBASE_API_KEY = process.env.EXPO_PUBLIC_FIREBASE_API_KEY || '';
@@ -50,12 +48,27 @@ const apiClient: AxiosInstance = axios.create({
   },
 });
 
+const normalizeAuthToken = (rawToken: string | null): string | null => {
+  if (!rawToken) return null;
+  const trimmed = rawToken.trim();
+  if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return null;
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    const unquoted = trimmed.slice(1, -1).trim();
+    return unquoted || null;
+  }
+  return trimmed;
+};
+
 // Request interceptor - Add auth token
 apiClient.interceptors.request.use(
   async (config) => {
     try {
       // Get auth token from AsyncStorage
-      const token = await AsyncStorage.getItem('authToken');
+      const rawToken = await AsyncStorage.getItem('authToken');
+      const token = normalizeAuthToken(rawToken);
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -85,17 +98,19 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error: AxiosError) => {
-    if (__DEV__) {
-      console.error('API Error:', error.response?.data || error.message);
-    }
-
     // Handle specific error cases
     if (error.response) {
       const status = error.response.status;
       const originalRequest: any = error.config;
+      const apiMessage =
+        (error.response.data as { message?: string } | undefined)?.message || '';
+      const isInvalidTokenFormat =
+        apiMessage.toLowerCase().includes('invalid token format');
+      const isExpectedFeedbackDuplicate =
+        apiMessage.toLowerCase().includes('feedback already submitted');
       
       // Unauthorized - Clear token and redirect to login
-      if (status === 401 && originalRequest && !originalRequest._retry) {
+      if ((status === 401 || isInvalidTokenFormat) && originalRequest && !originalRequest._retry) {
         originalRequest._retry = true;
         try {
           const newToken = await refreshAuthToken();
@@ -112,6 +127,10 @@ apiClient.interceptors.response.use(
         }
       }
       
+      if (__DEV__ && !isExpectedFeedbackDuplicate) {
+        console.error('API Error:', error.response?.data || error.message);
+      }
+
       // Forbidden
       if (status === 403) {
         console.error('Access forbidden');
@@ -128,7 +147,12 @@ apiClient.interceptors.response.use(
       }
     } else if (error.request) {
       // Network error
+      if (__DEV__) {
+        console.error('API Error:', error.message);
+      }
       console.error('Network error - Check your connection');
+    } else if (__DEV__) {
+      console.error('API Error:', error.message);
     }
 
     return Promise.reject(error);

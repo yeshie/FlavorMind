@@ -15,8 +15,8 @@ import { ArrowLeft, Check } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
-import recipeService, { Recipe } from '../../../services/api/recipe.service';
-import { getCurrentUser } from '../../../services/firebase/authService';
+import { getFirebaseUser } from '../../../services/firebase/authService';
+import recipeStore, { PublishStatus, FirestoreRecipe } from '../../../services/firebase/recipeStore';
 
 interface SelectRecipesPageScreenProps {
   navigation: any;
@@ -26,7 +26,7 @@ interface RecipeCard {
   id: string;
   title: string;
   image?: string;
-  isPublished: boolean;
+  status: PublishStatus;
 }
 
 const SelectRecipesPageScreen: React.FC<SelectRecipesPageScreenProps> = ({ navigation }) => {
@@ -34,22 +34,34 @@ const SelectRecipesPageScreen: React.FC<SelectRecipesPageScreenProps> = ({ navig
   const [allRecipes, setAllRecipes] = useState<RecipeCard[]>([]);
   const [loadingRecipes, setLoadingRecipes] = useState(true);
 
-  const mapRecipeCard = (recipe: Recipe): RecipeCard => ({
+  const getStatusLabel = (status: PublishStatus) => {
+    if (status === 'pending') return 'PENDING';
+    if (status === 'rejected') return 'REJECTED';
+    return 'DRAFT';
+  };
+
+  const getStatusColor = (status: PublishStatus) => {
+    if (status === 'pending') return COLORS.pastelOrange.main;
+    if (status === 'rejected') return COLORS.status.error;
+    return COLORS.pastelYellow.main;
+  };
+
+  const mapRecipeCard = (recipe: FirestoreRecipe): RecipeCard => ({
     id: recipe.id,
     title: recipe.title,
-    image: recipe.imageUrl || recipe.image,
-    isPublished: recipe.isPublished ?? false,
+    image: recipe.imageUrl || recipe.image || undefined,
+    status: recipe.publishStatus || 'draft',
   });
 
   const loadRecipes = useCallback(async () => {
     setLoadingRecipes(true);
     try {
-      const user = await getCurrentUser();
-      const response = await recipeService.getRecipes({
-        limit: 50,
-        ownerId: user?.uid,
-      });
-      const recipes = response.data.recipes || [];
+      const user = getFirebaseUser();
+      if (!user) {
+        setAllRecipes([]);
+        return;
+      }
+      const recipes = await recipeStore.getUserRecipes(user.uid);
       setAllRecipes(recipes.map(mapRecipeCard));
     } catch (error) {
       console.error('Recipe selection load error:', error);
@@ -186,9 +198,16 @@ const SelectRecipesPageScreen: React.FC<SelectRecipesPageScreenProps> = ({ navig
                   </View>
 
                   {/* Status Badge */}
-                  {!recipe.isPublished && (
-                    <View style={styles.draftBadge}>
-                      <Text style={styles.draftBadgeText}>DRAFT</Text>
+                  {recipe.status !== 'approved' && (
+                    <View
+                      style={[
+                        styles.draftBadge,
+                        { backgroundColor: getStatusColor(recipe.status) },
+                      ]}
+                    >
+                      <Text style={styles.draftBadgeText}>
+                        {getStatusLabel(recipe.status)}
+                      </Text>
                     </View>
                   )}
 

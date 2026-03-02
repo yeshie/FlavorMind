@@ -1,5 +1,5 @@
 // src/features/community/screens/DigitalCommitteeScreen.tsx
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,15 @@ import {
   StyleSheet,
   Image,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MessageCircle, Star } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
+import recipeStore, { FirestoreRecipe } from '../../../services/firebase/recipeStore';
+import { hasFirebaseConfig } from '../../../services/firebase/firebase';
+import feedbackService from '../../../services/api/feedback.service';
 
 interface DigitalCommitteeScreenProps {
   navigation: any;
@@ -44,6 +48,12 @@ const DigitalCommitteeScreen: React.FC<DigitalCommitteeScreenProps> = ({ navigat
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('All');
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [approvedRecipes, setApprovedRecipes] = useState<FirestoreRecipe[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [feedbackSummaryByRecipe, setFeedbackSummaryByRecipe] = useState<
+    Record<string, { averageRating: number; totalReviews: number }>
+  >({});
 
   const filters = ['All', 'Sweet', 'Savory', 'Vegan', 'Spicy', 'Traditional', 'Healthy', 'Desserts'];
 
@@ -94,6 +104,107 @@ const DigitalCommitteeScreen: React.FC<DigitalCommitteeScreenProps> = ({ navigat
     },
   ];
 
+  const mapRecipeCard = useCallback(
+    (recipe: FirestoreRecipe): CommunityRecipe => ({
+      id: recipe.id,
+      title: recipe.title || 'Community Recipe',
+      creator: recipe.ownerName || 'Community Chef',
+      creatorAvatar: '',
+      image: recipe.imageUrl || recipe.image || '',
+      description: recipe.description || 'A community recipe shared with FlavorMind.',
+      rating: recipe.rating ?? 0,
+      comments: recipe.feedbackCount ?? 0,
+      category: (recipe.category || recipe.cuisine || 'Community') as CommunityRecipe['category'],
+    }),
+    []
+  );
+
+  const loadCommunityRecipes = useCallback(
+    async (isRefresh = false) => {
+      if (!hasFirebaseConfig) {
+        setApprovedRecipes([]);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      try {
+        const recipes = await recipeStore.getApprovedRecipes();
+        setApprovedRecipes(recipes);
+        setLoadError(null);
+      } catch (error) {
+        console.error('Digital committee load error:', error);
+        setLoadError(
+          (error as any)?.message || (error as any)?.toString?.() || 'Unknown error'
+        );
+        setApprovedRecipes([]);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    loadCommunityRecipes();
+  }, [loadCommunityRecipes]);
+
+  useEffect(() => {
+    if (!approvedRecipes.length) {
+      setFeedbackSummaryByRecipe({});
+      return;
+    }
+
+    let isActive = true;
+    const ids = approvedRecipes.slice(0, 20).map((recipe) => recipe.id);
+
+    const loadSummaries = async () => {
+      try {
+        const results = await Promise.all(
+          ids.map(async (id) => {
+            try {
+              const response = await feedbackService.getRecipeFeedback(id, 1, 1);
+              return {
+                id,
+                averageRating: response.data?.averageRating ?? 0,
+                totalReviews: response.data?.totalReviews ?? 0,
+              };
+            } catch (error) {
+              return null;
+            }
+          })
+        );
+
+        if (!isActive) return;
+        const next: Record<string, { averageRating: number; totalReviews: number }> = {};
+        results.forEach((entry) => {
+          if (entry) {
+            next[entry.id] = {
+              averageRating: entry.averageRating,
+              totalReviews: entry.totalReviews,
+            };
+          }
+        });
+        setFeedbackSummaryByRecipe(next);
+      } catch (error) {
+        console.error('Feedback summary load error:', error);
+      }
+    };
+
+    loadSummaries();
+
+    return () => {
+      isActive = false;
+    };
+  }, [approvedRecipes]);
+
   const popularCookbooks: Cookbook[] = [
     {
       id: '1',
@@ -122,14 +233,11 @@ const DigitalCommitteeScreen: React.FC<DigitalCommitteeScreenProps> = ({ navigat
   ];
 
   const handleRefresh = async () => {
-    setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 2000);
+    await loadCommunityRecipes(true);
   };
 
   const handleRecipePress = (recipe: CommunityRecipe) => {
-    navigation.navigate('RecipeDescription', { recipe });
+    navigation.navigate('RecipeDescription', { recipeId: recipe.id, recipe });
   };
 
   const handleCookbookPress = (cookbook: Cookbook) => {
@@ -143,6 +251,31 @@ const DigitalCommitteeScreen: React.FC<DigitalCommitteeScreenProps> = ({ navigat
   const handleProfile = () => {
     navigation.navigate('ProfileSettings');
   };
+
+  const displayedRecipes = useMemo(() => {
+    const sourceRecipes = hasFirebaseConfig
+      ? approvedRecipes.map(mapRecipeCard)
+      : popularRecipes;
+
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    const activeFilter = selectedFilter.toLowerCase();
+
+    return sourceRecipes.filter((recipe) => {
+      if (activeFilter !== 'all') {
+        const category = String(recipe.category || '').toLowerCase();
+        if (!category.includes(activeFilter)) {
+          return false;
+        }
+      }
+
+      if (!normalizedQuery) return true;
+      return (
+        recipe.title.toLowerCase().includes(normalizedQuery) ||
+        recipe.description.toLowerCase().includes(normalizedQuery) ||
+        recipe.creator.toLowerCase().includes(normalizedQuery)
+      );
+    });
+  }, [approvedRecipes, popularRecipes, searchQuery, selectedFilter, mapRecipeCard]);
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -240,15 +373,50 @@ const DigitalCommitteeScreen: React.FC<DigitalCommitteeScreenProps> = ({ navigat
             <Text style={styles.sectionSubtitle}>From our community</Text>
           </View>
 
-          {popularRecipes.map((recipe) => (
-            <TouchableOpacity
-              key={recipe.id}
-              style={styles.recipeCard}
-              onPress={() => handleRecipePress(recipe)}
-              activeOpacity={0.9}
-            >
+          {loading && (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator size="small" color={COLORS.pastelOrange.main} />
+              <Text style={styles.loadingText}>Loading community recipes...</Text>
+            </View>
+          )}
+
+          {!loading && loadError && (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>
+                Unable to load community recipes right now.
+              </Text>
+            </View>
+          )}
+
+          {!loading && !loadError && displayedRecipes.length === 0 && (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>No recipes match your search.</Text>
+            </View>
+          )}
+
+          {displayedRecipes.map((recipe) => {
+            const feedbackSummary = feedbackSummaryByRecipe[recipe.id];
+            const ratingValue =
+              feedbackSummary && feedbackSummary.totalReviews > 0
+                ? feedbackSummary.averageRating
+                : recipe.rating;
+            const commentValue = feedbackSummary
+              ? Math.max(recipe.comments, feedbackSummary.totalReviews)
+              : recipe.comments;
+
+            return (
+              <TouchableOpacity
+                key={recipe.id}
+                style={styles.recipeCard}
+                onPress={() => handleRecipePress(recipe)}
+                activeOpacity={0.9}
+              >
               <Image
-                source={{ uri: recipe.image }}
+                source={
+                  recipe.image
+                    ? { uri: recipe.image }
+                    : require('../../../assets/icon.png')
+                }
                 style={styles.recipeImage}
                 resizeMode="cover"
               />
@@ -258,11 +426,15 @@ const DigitalCommitteeScreen: React.FC<DigitalCommitteeScreenProps> = ({ navigat
                 </Text>
                 
                 <View style={styles.creatorRow}>
-                  <Image
-                    source={{ uri: recipe.creatorAvatar }}
-                    style={styles.creatorAvatar}
-                    resizeMode="cover"
-                  />
+                <Image
+                  source={
+                    recipe.creatorAvatar
+                      ? { uri: recipe.creatorAvatar }
+                      : require('../../../assets/icons/user.png')
+                  }
+                  style={styles.creatorAvatar}
+                  resizeMode="cover"
+                />
                   <Text style={styles.creatorName}>{recipe.creator}</Text>
                 </View>
 
@@ -273,19 +445,22 @@ const DigitalCommitteeScreen: React.FC<DigitalCommitteeScreenProps> = ({ navigat
                 <View style={styles.recipeStats}>
                   <View style={styles.statItem}>
                     <Star size={scaleFontSize(14)} color={COLORS.pastelOrange.main} strokeWidth={2} style={styles.starIcon} />
-                    <Text style={styles.statText}>{recipe.rating}</Text>
+                    <Text style={styles.statText}>
+                      {ratingValue > 0 ? ratingValue.toFixed(1) : '--'}
+                    </Text>
                   </View>
                   <View style={styles.statItem}>
                     <MessageCircle size={scaleFontSize(14)} color={COLORS.text.secondary} strokeWidth={2} style={styles.commentIcon} />
-                    <Text style={styles.statText}>{recipe.comments}</Text>
+                    <Text style={styles.statText}>{commentValue}</Text>
                   </View>
                   <View style={styles.categoryBadge}>
                     <Text style={styles.categoryText}>{recipe.category}</Text>
                   </View>
                 </View>
               </View>
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* Popular Cookbooks */}
@@ -607,6 +782,25 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: moderateScale(SPACING['4xl']),
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.xs),
+    marginHorizontal: moderateScale(SPACING.base),
+    marginBottom: moderateScale(SPACING.md),
+  },
+  loadingText: {
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.sm),
+    color: COLORS.text.secondary,
+  },
+  emptyState: {
+    marginHorizontal: moderateScale(SPACING.base),
+    marginBottom: moderateScale(SPACING.md),
+  },
+  emptyStateText: {
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.sm),
+    color: COLORS.text.secondary,
   },
 });
 

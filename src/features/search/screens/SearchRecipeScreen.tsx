@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
+import { normalizeDishName } from '../../../common/utils';
 import recipeService, { Recipe } from '../../../services/api/recipe.service';
 
 interface SearchRecipeScreenProps {
@@ -30,12 +31,12 @@ const SearchRecipeScreen: React.FC<SearchRecipeScreenProps> = ({ navigation }) =
   const [adaptations, setAdaptations] = useState<any[]>([]);
   const [intent, setIntent] = useState<string | undefined>(undefined);
 
-  const normalizeRecipes = (items: any[] = [], seed = 'recipe'): Recipe[] => {
+  const normalizeRecipes = (items: any[] = [], seed = 'recipe', sourceQuery?: string): Recipe[] => {
     const base = Date.now();
     return items.map((recipe: any, index: number) => ({
       ...recipe,
       id: recipe.id || recipe.title || recipe.dish || `${seed}-${base}-${index}`,
-      title: recipe.title || recipe.dish || recipe.name || 'Recipe',
+      title: normalizeDishName(recipe.title || recipe.dish || recipe.name, sourceQuery),
     }));
   };
 
@@ -100,7 +101,7 @@ const SearchRecipeScreen: React.FC<SearchRecipeScreenProps> = ({ navigation }) =
 
       setIntent(nextIntent);
       setAdaptations(nextAdaptations);
-      setResults(normalizeRecipes(recipes));
+      setResults(normalizeRecipes(recipes, 'recipe', finalTerm));
     } catch (error) {
       console.error('Search recipes error:', error);
       setErrorText('Could not load recipes. Please try again.');

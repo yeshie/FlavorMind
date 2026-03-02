@@ -74,18 +74,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
     try {
       const response = await registerWithEmail(name, email, password);
       
-      if (response.success) {
-        Alert.alert(
-          'Success',
-          'Registration successful! Please login.',
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.navigate('Login'),
-            },
-          ]
-        );
-      } else {
+      if (!response.success) {
         Alert.alert('Error', response.message || 'Registration failed');
       }
     } catch (error: any) {

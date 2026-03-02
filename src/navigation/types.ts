@@ -44,7 +44,8 @@ export type RootStackParamList = {
   // Community Screens
   DigitalCommittee: undefined;
   RecipeDescription: {
-    recipeId: string;
+    recipeId?: string;
+    recipe?: any;
   };
   CookbookReference: {
     cookbook: any;

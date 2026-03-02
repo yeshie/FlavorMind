@@ -14,6 +14,8 @@ import { ArrowLeft, BookOpen, Check, Pencil, Sparkles } from 'lucide-react-nativ
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
+import { getFirebaseUser } from '../../../services/firebase/authService';
+import cookbookStore from '../../../services/firebase/cookbookStore';
 
 interface CookbookCreationSummaryScreenProps {
   navigation: any;
@@ -50,9 +52,27 @@ const CookbookCreationSummaryScreen: React.FC<CookbookCreationSummaryScreenProps
           onPress: async () => {
             setIsPublishing(true);
 
-            // Simulate publishing process
-            setTimeout(() => {
-              setIsPublishing(false);
+            try {
+              const user = getFirebaseUser();
+              if (!user) {
+                Alert.alert('Login Required', 'Please sign in to publish cookbooks.');
+                return;
+              }
+
+              const recipeIds = selectedRecipes.map((recipe) => recipe.id);
+              const created = await cookbookStore.createCookbook({
+                title: coverData.title,
+                ownerId: user.uid,
+                authorName: coverData.authorName,
+                introduction: coverData.introduction,
+                occupation: coverData.occupation,
+                aboutAuthor: coverData.aboutAuthor,
+                thankYouMessage: coverData.thankYouMessage,
+                recipes: recipeIds,
+                recipesCount: recipeIds.length,
+                publishStatus: 'approved',
+              });
+
               Alert.alert(
                 'Published!',
                 'Your cookbook has been published successfully!',
@@ -60,22 +80,26 @@ const CookbookCreationSummaryScreen: React.FC<CookbookCreationSummaryScreenProps
                   {
                     text: 'View Cookbook',
                     onPress: () => {
-                      // Navigate to the published cookbook
                       navigation.navigate('CookbookReference', {
                         cookbook: {
-                          id: 'new-cookbook-id',
-                          title: coverData.title,
-                          author: coverData.authorName,
-                          coverImage: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600',
+                          id: created.id,
+                          title: created.title,
+                          author: created.authorName || coverData.authorName,
+                          coverImage: created.coverImageUrl,
                           rating: 0,
-                          recipesCount: selectedRecipes.length,
+                          recipesCount: recipeIds.length,
                         },
                       });
                     },
                   },
                 ]
               );
-            }, 2000);
+            } catch (error) {
+              console.error('Publish cookbook error:', error);
+              Alert.alert('Error', 'Could not publish this cookbook right now.');
+            } finally {
+              setIsPublishing(false);
+            }
           },
         },
       ]

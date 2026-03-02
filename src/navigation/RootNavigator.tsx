@@ -4,7 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { COLORS } from '../constants/theme';
-import { isAuthenticated } from '../services/firebase/authService';
+import { isAuthenticated, subscribeToAuthChanges } from '../services/firebase/authService';
 
 // Navigators
 import AuthNavigator from './AuthNavigator';
@@ -74,7 +74,7 @@ type RootStackParamList = {
   ScaledRecipeResults: { scalingQuery: string };
   SmartScalingSearchResults: { query: string };
   DigitalCommittee: undefined;
-  RecipeDescription: { recipeId: string };
+  RecipeDescription: { recipeId?: string; recipe?: any };
   CookbookReference: { cookbook: any };
   CookbookIntroduction: { cookbookId: string };
   CookbookRecipePage: {
@@ -116,6 +116,13 @@ const RootNavigator: React.FC = () => {
 
   useEffect(() => {
     checkAuthStatus();
+    const unsubscribe = subscribeToAuthChanges((authStatus) => {
+      setIsAuth(authStatus);
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const checkAuthStatus = async () => {

@@ -10,3 +10,5 @@ export {
   getGridColumns,
   DIMENSIONS,
 } from './responsive';
+
+export { normalizeDishName } from './normalizeDishName';

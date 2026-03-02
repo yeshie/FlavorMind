@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, ChefHat, ChevronRight, MapPin } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
+import { normalizeDishName } from '../../../common/utils';
 import recipeService, { Recipe } from '../../../services/api/recipe.service';
 import memoryService from '../../../services/api/memory.service';
 
@@ -45,7 +46,7 @@ const SimilarDishesScreen: React.FC<SimilarDishesScreenProps> = ({ navigation, r
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const normalizeSimilarDish = (item: any, index: number): SimilarDish => ({
     id: item?.id || `${index}`,
-    name: item?.name || item?.title || item?.dish || 'Suggested Dish',
+    name: normalizeDishName(item?.name || item?.title || item?.dish, memoryQuery),
     description: item?.description || item?.summary || 'A delicious recipe tailored to your memory.',
     region: item?.region || item?.cuisine || 'Unknown region',
     style: item?.style || item?.category || 'Signature Recipe',
@@ -59,7 +60,7 @@ const SimilarDishesScreen: React.FC<SimilarDishesScreenProps> = ({ navigation, r
 
   const mapRecipeToSimilarDish = (recipe: Recipe, index: number): SimilarDish => ({
     id: recipe.id,
-    name: recipe.title,
+    name: normalizeDishName(recipe.title, memoryQuery),
     description: recipe.description || 'A delicious recipe tailored to your memory.',
     region: recipe.region || recipe.cuisine || 'Unknown region',
     style: recipe.style || recipe.category || 'Signature Recipe',

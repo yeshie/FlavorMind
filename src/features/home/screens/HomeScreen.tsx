@@ -25,6 +25,7 @@ import { getCurrentUser } from '../../../services/firebase/authService';
 import recipeService, { Recipe } from '../../../services/api/recipe.service';
 import seasonalService, { SeasonalFood } from '../../../services/api/seasonal.service';
 import userService from '../../../services/api/user.service';
+import memoryService from '../../../services/api/memory.service';
 
 interface HomeScreenProps {
   navigation: any;
@@ -40,6 +41,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [seasonalItems, setSeasonalItems] = useState<SeasonalItem[]>([]);
   const [recommendations, setRecommendations] = useState<RecipeRecommendation[]>([]);
   const [deviceCoords, setDeviceCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [memoryQuery, setMemoryQuery] = useState('');
+  const [creatingMemory, setCreatingMemory] = useState(false);
   const locationToShow = useMemo(
     () => profileLocation || deviceLocation,
     [profileLocation, deviceLocation]
@@ -196,8 +199,31 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     navigation.navigate('ProfileSettings');
   };
 
-  const handleMemoryGenerate = (query: string) => {
-    Alert.alert('Generate Recipe', `Generating recipe for: ${query}`);
+  const handleMemoryGenerate = async (query: string) => {
+    if (!query.trim()) {
+      Alert.alert('Memory Required', 'Please describe your food memory first');
+      return;
+    }
+
+    setCreatingMemory(true);
+    try {
+      const response = await memoryService.createMemory({
+        description: query.trim(),
+        isVoiceInput: false,
+      });
+      const memory = response.data.memory as any;
+      navigation.navigate('SimilarDishesScreen', {
+        memoryQuery: query.trim(),
+        memoryId: memory.id,
+        similarDishes: memory?.similarDishes,
+      });
+      setMemoryQuery('');
+    } catch (error) {
+      console.error('Create memory error:', error);
+      Alert.alert('Error', 'Could not generate recipes right now.');
+    } finally {
+      setCreatingMemory(false);
+    }
   };
 
   const handleVoicePress = () => {
@@ -300,8 +326,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </View>
         )}
         <MemoryCore
+          value={memoryQuery}
+          onChangeText={setMemoryQuery}
           onGenerate={handleMemoryGenerate}
           onVoicePress={handleVoicePress}
+          loading={creatingMemory}
         />
 
         {seasonalItems.length > 0 ? (

@@ -14,6 +14,7 @@ import { ArrowLeft, ChefHat, ClipboardList, Globe, Lightbulb, Pencil, Save, Tras
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
+import recipeStore, { PublishStatus } from '../../../services/firebase/recipeStore';
 
 interface DraftRecipePageScreenProps {
   navigation: any;
@@ -29,6 +30,25 @@ const DraftRecipePageScreen: React.FC<DraftRecipePageScreenProps> = ({
   route 
 }) => {
   const { recipe } = route.params;
+  const status = (recipe?.publishStatus || recipe?.status || 'draft') as PublishStatus;
+  const canPublish = status === 'draft' || status === 'rejected';
+
+  const statusLabel =
+    status === 'approved'
+      ? 'PUBLISHED'
+      : status === 'pending'
+        ? 'WAITING'
+        : status === 'rejected'
+          ? 'REJECTED'
+          : 'DRAFT';
+  const statusMessage =
+    status === 'approved'
+      ? 'Published and visible to the community'
+      : status === 'pending'
+        ? 'Awaiting admin approval'
+        : status === 'rejected'
+          ? 'Not accepted - update and resubmit'
+          : 'Not yet published - Private to you';
 
   const handleRecreate = () => {
     // Navigate to cooking flow
@@ -47,18 +67,30 @@ const DraftRecipePageScreen: React.FC<DraftRecipePageScreenProps> = ({
   };
 
   const handlePublish = () => {
+    if (!canPublish) {
+      Alert.alert('Pending Approval', 'This recipe is already waiting for admin approval.');
+      return;
+    }
+
     Alert.alert(
       'Publish Recipe',
-      'Are you sure you want to publish this recipe to the community?',
+      'Submit this recipe for admin approval?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Publish',
-          onPress: () => {
-            // TODO: Implement publish logic
-            Alert.alert('Success', 'Recipe published successfully!', [
-              { text: 'OK', onPress: () => navigation.goBack() }
-            ]);
+          text: 'Submit',
+          onPress: async () => {
+            try {
+              await recipeStore.updateRecipePublishStatus(recipe.id, 'pending');
+              Alert.alert(
+                'Submitted',
+                'Your recipe is waiting for admin approval.',
+                [{ text: 'OK', onPress: () => navigation.goBack() }]
+              );
+            } catch (error) {
+              console.error('Publish recipe error:', error);
+              Alert.alert('Error', 'Could not submit this recipe right now.');
+            }
           },
         },
       ]
@@ -78,10 +110,16 @@ const DraftRecipePageScreen: React.FC<DraftRecipePageScreenProps> = ({
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            Alert.alert('Deleted', 'Draft recipe deleted', [
-              { text: 'OK', onPress: () => navigation.goBack() }
-            ]);
+          onPress: async () => {
+            try {
+              await recipeStore.deleteRecipe(recipe.id);
+              Alert.alert('Deleted', 'Draft recipe deleted', [
+                { text: 'OK', onPress: () => navigation.goBack() }
+              ]);
+            } catch (error) {
+              console.error('Delete draft error:', error);
+              Alert.alert('Error', 'Could not delete this draft right now.');
+            }
           },
         },
       ]
@@ -103,8 +141,22 @@ const DraftRecipePageScreen: React.FC<DraftRecipePageScreenProps> = ({
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>Draft Recipe</Text>
-          <View style={styles.draftBadge}>
-            <Text style={styles.draftBadgeText}>DRAFT</Text>
+          <View
+            style={[
+              styles.draftBadge,
+              {
+                backgroundColor:
+                  status === 'approved'
+                    ? COLORS.pastelGreen.main
+                    : status === 'pending'
+                      ? COLORS.pastelOrange.main
+                      : status === 'rejected'
+                        ? COLORS.status.error
+                        : COLORS.pastelYellow.main,
+              },
+            ]}
+          >
+            <Text style={styles.draftBadgeText}>{statusLabel}</Text>
           </View>
         </View>
       </View>
@@ -120,8 +172,22 @@ const DraftRecipePageScreen: React.FC<DraftRecipePageScreenProps> = ({
             style={styles.recipeImage}
             resizeMode="cover"
           />
-          <View style={styles.draftOverlay}>
-            <Text style={styles.draftOverlayText}>DRAFT</Text>
+          <View
+            style={[
+              styles.draftOverlay,
+              {
+                backgroundColor:
+                  status === 'approved'
+                    ? COLORS.pastelGreen.main
+                    : status === 'pending'
+                      ? COLORS.pastelOrange.main
+                      : status === 'rejected'
+                        ? COLORS.status.error
+                        : COLORS.pastelYellow.main,
+              },
+            ]}
+          >
+            <Text style={styles.draftOverlayText}>{statusLabel}</Text>
           </View>
         </View>
 
@@ -138,7 +204,7 @@ const DraftRecipePageScreen: React.FC<DraftRecipePageScreenProps> = ({
             <View style={styles.statusContent}>
               <Text style={styles.statusTitle}>Draft Status</Text>
               <Text style={styles.statusText}>
-                Not yet published - Private to you
+                {statusMessage}
               </Text>
             </View>
           </View>
@@ -181,16 +247,16 @@ const DraftRecipePageScreen: React.FC<DraftRecipePageScreenProps> = ({
 
             {/* Publish */}
             <TouchableOpacity
-              style={styles.actionCard}
-              onPress={handlePublish}
-              activeOpacity={0.8}
+              style={[styles.actionCard, !canPublish && styles.actionCardDisabled]}
+              onPress={canPublish ? handlePublish : undefined}
+              activeOpacity={canPublish ? 0.8 : 1}
             >
               <View style={[styles.actionIconContainer, { backgroundColor: COLORS.pastelGreen.light }]}>
                 <Globe size={scaleFontSize(24)} color={COLORS.text.primary} strokeWidth={2} style={styles.actionIcon} />
               </View>
-              <Text style={styles.actionTitle}>Publish</Text>
+              <Text style={[styles.actionTitle, !canPublish && styles.actionTitleDisabled]}>Publish</Text>
               <Text style={styles.actionDescription}>
-                Share with the community
+                {status === 'pending' ? 'Waiting for approval' : 'Share with the community'}
               </Text>
             </TouchableOpacity>
 
@@ -377,6 +443,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...SHADOWS.small,
   },
+  actionCardDisabled: {
+    opacity: 0.6,
+  },
   actionIconContainer: {
     width: moderateScale(60),
     height: moderateScale(60),
@@ -392,6 +461,9 @@ const styles = StyleSheet.create({
     color: COLORS.text.primary,
     marginBottom: moderateScale(SPACING.xs),
     textAlign: 'center',
+  },
+  actionTitleDisabled: {
+    color: COLORS.text.secondary,
   },
   actionDescription: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.xs),

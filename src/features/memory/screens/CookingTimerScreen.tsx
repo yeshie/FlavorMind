@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
+  ScrollView,
   TouchableOpacity,
   StyleSheet,
   Alert,
@@ -130,117 +131,125 @@ const CookingTimerScreen: React.FC<CookingTimerScreenProps> = ({ navigation, rou
         end={{ x: 1, y: 1 }}
         style={styles.gradient}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => {
-              if (isRunning) {
-                Alert.alert(
-                  'Timer Running',
-                  'Are you sure you want to go back? The timer will stop.',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Go Back',
-                      style: 'destructive',
-                      onPress: () => navigation.goBack(),
-                    },
-                  ]
-                );
-              } else {
-                navigation.goBack();
-              }
-            }}
-          >
-            <Text style={styles.backButtonText}>{'<- Back'}</Text>
-          </TouchableOpacity>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View>
+            {/* Header */}
+            <View style={styles.header}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => {
+                  if (isRunning) {
+                    Alert.alert(
+                      'Timer Running',
+                      'Are you sure you want to go back? The timer will stop.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Go Back',
+                          style: 'destructive',
+                          onPress: () => navigation.goBack(),
+                        },
+                      ]
+                    );
+                  } else {
+                    navigation.goBack();
+                  }
+                }}
+              >
+                <Text style={styles.backButtonText}>{'<- Back'}</Text>
+              </TouchableOpacity>
 
-          <View style={styles.dishInfo}>
-            <Text style={styles.dishName}>{dishName}</Text>
-            <Text style={styles.servingSize}>Serves {servingSize}</Text>
-          </View>
-        </View>
+              <View style={styles.dishInfo}>
+                <Text style={styles.dishName}>{dishName}</Text>
+                <Text style={styles.servingSize}>Serves {servingSize}</Text>
+              </View>
+            </View>
 
-        {/* Timer Display */}
-        <View style={styles.timerSection}>
-          <View style={styles.timerCircle}>
-            <View style={styles.timerInner}>
-              <Text style={styles.timerText}>{formatTime(minutes, seconds)}</Text>
-              <Text style={styles.timerLabel}>
-                {isRunning ? (isPaused ? 'Paused' : 'Cooking...') : 'Ready to Start'}
-              </Text>
+            {/* Timer Display */}
+            <View style={styles.timerSection}>
+              <View style={styles.timerCircle}>
+                <View style={styles.timerInner}>
+                  <Text style={styles.timerText}>{formatTime(minutes, seconds)}</Text>
+                  <Text style={styles.timerLabel}>
+                    {isRunning ? (isPaused ? 'Paused' : 'Cooking...') : 'Ready to Start'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Progress Ring */}
+              <View style={styles.progressRing}>
+                <View style={[styles.progressFill, { height: `${progress * 100}%` }]} />
+              </View>
+            </View>
+
+            {/* Time Adjust Controls (Only when not running) */}
+            {!isRunning && (
+              <View style={styles.adjustControls}>
+                <TouchableOpacity
+                  style={styles.adjustButton}
+                  onPress={() => adjustTime(-5)}
+                >
+                  <Text style={styles.adjustButtonText}>-5</Text>
+                </TouchableOpacity>
+
+                <Text style={styles.adjustLabel}>Adjust Minutes</Text>
+
+                <TouchableOpacity
+                  style={styles.adjustButton}
+                  onPress={() => adjustTime(5)}
+                >
+                  <Text style={styles.adjustButtonText}>+5</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Control Buttons */}
+            <View style={styles.controls}>
+              {!isRunning ? (
+                <TouchableOpacity
+                  style={styles.startButton}
+                  onPress={handleStart}
+                >
+                  <Text style={styles.startButtonText}>Start Timer</Text>
+                </TouchableOpacity>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={styles.controlButton}
+                    onPress={isPaused ? handleResume : handlePause}
+                  >
+                    <Text style={styles.controlButtonText}>
+                      {isPaused ? 'Resume' : 'Pause'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.controlButton, styles.resetButton]}
+                    onPress={handleReset}
+                  >
+                    <Text style={styles.resetButtonText}>Reset</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           </View>
 
-          {/* Progress Ring */}
-          <View style={styles.progressRing}>
-            <View style={[styles.progressFill, { height: `${progress * 100}%` }]} />
-          </View>
-        </View>
-
-        {/* Time Adjust Controls (Only when not running) */}
-        {!isRunning && (
-          <View style={styles.adjustControls}>
-            <TouchableOpacity
-              style={styles.adjustButton}
-              onPress={() => adjustTime(-5)}
-            >
-              <Text style={styles.adjustButtonText}>-5</Text>
-            </TouchableOpacity>
-
-            <Text style={styles.adjustLabel}>Adjust Minutes</Text>
-
-            <TouchableOpacity
-              style={styles.adjustButton}
-              onPress={() => adjustTime(5)}
-            >
-              <Text style={styles.adjustButtonText}>+5</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Control Buttons */}
-        <View style={styles.controls}>
-          {!isRunning ? (
-            <TouchableOpacity
-              style={styles.startButton}
-              onPress={handleStart}
-            >
-              <Text style={styles.startButtonText}>Start Timer</Text>
-            </TouchableOpacity>
-          ) : (
-            <>
-              <TouchableOpacity
-                style={styles.controlButton}
-                onPress={isPaused ? handleResume : handlePause}
-              >
-                <Text style={styles.controlButtonText}>
-                  {isPaused ? 'Resume' : 'Pause'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.controlButton, styles.resetButton]}
-                onPress={handleReset}
-              >
-                <Text style={styles.resetButtonText}>Reset</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-
-        {/* Skip Timer Option */}
-        <TouchableOpacity
-          style={styles.skipButton}
-          onPress={() => navigation.navigate('Feedback', {
-            dishName,
-            servingSize,
-            recipeId,
-          })}
-        >
-          <Text style={styles.skipButtonText}>Skip Timer -></Text>
-        </TouchableOpacity>
+          {/* Skip Timer Option */}
+          <TouchableOpacity
+            style={styles.skipButton}
+            onPress={() => navigation.navigate('Feedback', {
+              dishName,
+              servingSize,
+              recipeId,
+            })}
+          >
+            <Text style={styles.skipButtonText}>Skip Timer -></Text>
+          </TouchableOpacity>
+        </ScrollView>
       </LinearGradient>
     </SafeAreaView>
   );
@@ -252,7 +261,14 @@ const styles = StyleSheet.create({
   },
   gradient: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     padding: moderateScale(SPACING.xl),
+    justifyContent: 'space-between',
+  },
+  scrollView: {
+    flex: 1,
   },
   header: {
     marginBottom: moderateScale(SPACING['3xl']),

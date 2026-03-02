@@ -15,12 +15,23 @@ import { moderateScale, scaleFontSize } from '../../../../common/utils/responsiv
 import Button from '../../../../common/components/Button/button';
 
 interface MemoryCoreProps {
+  value?: string;
+  onChangeText?: (text: string) => void;
   onGenerate: (query: string) => void;
   onVoicePress: () => void;
+  loading?: boolean;
 }
 
-const MemoryCore: React.FC<MemoryCoreProps> = ({ onGenerate, onVoicePress }) => {
-  const [query, setQuery] = useState('');
+const MemoryCore: React.FC<MemoryCoreProps> = ({
+  value,
+  onChangeText,
+  onGenerate,
+  onVoicePress,
+  loading = false,
+}) => {
+  const [internalQuery, setInternalQuery] = useState('');
+  const query = value !== undefined ? value : internalQuery;
+  const setQuery = onChangeText ?? setInternalQuery;
   const [isFocused, setIsFocused] = useState(false);
 
   const handleGenerate = () => {
@@ -63,12 +74,14 @@ const MemoryCore: React.FC<MemoryCoreProps> = ({ onGenerate, onVoicePress }) => 
             numberOfLines={3}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
+            editable={!loading}
           />
           
           <TouchableOpacity
             style={styles.micButton}
             onPress={onVoicePress}
             activeOpacity={0.7}
+            disabled={loading}
           >
             <Image
               source={require('../../../../assets/icons/microphone.png')}
@@ -83,7 +96,8 @@ const MemoryCore: React.FC<MemoryCoreProps> = ({ onGenerate, onVoicePress }) => 
           size="medium"
           fullWidth
           onPress={handleGenerate}
-          disabled={!query.trim()}
+          disabled={!query.trim() || loading}
+          loading={loading}
           icon={require('../../../../assets/icons/sparkle.png')}
           style={styles.generateButton}
         >

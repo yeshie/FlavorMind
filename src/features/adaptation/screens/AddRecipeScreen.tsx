@@ -20,6 +20,8 @@ import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../co
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
 import recipeService from '../../../services/api/recipe.service';
+import { getFirebaseUser } from '../../../services/firebase/authService';
+import recipeStore from '../../../services/firebase/recipeStore';
 
 interface AddRecipeScreenProps {
   navigation: any;
@@ -122,15 +124,19 @@ const AddRecipeScreen: React.FC<AddRecipeScreenProps> = ({ navigation }) => {
 
     setSaving(true);
     try {
+      const user = getFirebaseUser();
+      if (!user) {
+        Alert.alert('Login Required', 'Please sign in to save recipes.');
+        return;
+      }
+
       let imageUrl: string | undefined;
-      let imageId: string | undefined;
       if (pickedImage) {
         const upload = await recipeService.uploadRecipeImage(pickedImage);
         imageUrl = upload.data?.imageUrl;
-        imageId = upload.data?.imageId;
       }
 
-      await recipeService.createRecipe({
+      await recipeStore.createRecipe({
         title: dishName.trim(),
         description: alternatives.trim() || 'User-submitted recipe',
         cuisine: 'Sri Lankan',
@@ -141,11 +147,18 @@ const AddRecipeScreen: React.FC<AddRecipeScreenProps> = ({ navigation }) => {
         servings: Number(servingSize) || 1,
         ingredients: parsedIngredients,
         instructions: parsedInstructions,
-        isPublished: publish,
         imageUrl: imageUrl || null,
-        imageId: imageId || null,
+        ownerId: user.uid,
+        ownerName: user.displayName,
+        publishStatus: publish ? 'pending' : 'draft',
+        source: 'user',
       });
-      Alert.alert('Success', publish ? 'Recipe published!' : 'Recipe saved to your library!');
+      Alert.alert(
+        'Success',
+        publish
+          ? 'Recipe submitted for approval! It will appear once approved.'
+          : 'Recipe saved to your drafts!'
+      );
       navigation.goBack();
     } catch (error) {
       console.error('Save recipe error:', error);
@@ -162,7 +175,7 @@ const AddRecipeScreen: React.FC<AddRecipeScreenProps> = ({ navigation }) => {
     }
     Alert.alert(
       'Publish Recipe',
-      'Your recipe will be shared with the FlavorMind community. Continue?',
+      'Your recipe will be submitted for admin approval before it appears publicly. Continue?',
       [
         { text: 'Cancel', style: 'cancel' },
         {

@@ -2,6 +2,7 @@
   "expo": {
     "name": "FlavorMind",
     "slug": "FlavorMind",
+    "scheme": "flavormind",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./src/assets/icon.png",
@@ -16,6 +17,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.flavormind.app",
       "icon": "./src/assets/icon.png",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "FlavorMind uses your location to show seasonal foods near you.",
         "NSPhotoLibraryUsageDescription": "FlavorMind needs access to your photos to upload recipe images."
@@ -39,6 +41,9 @@
     "web": {
       "favicon": "./src/assets/icon.png",
       "backgroundColor": "#E8F5E9"
-    }
+    },
+    "plugins": [
+      "expo-web-browser"
+    ]
   }
 }

@@ -16,6 +16,9 @@ import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../co
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
 import recipeService, { Recipe } from '../../../services/api/recipe.service';
+import recipeStore from '../../../services/firebase/recipeStore';
+import { getFirebaseUser } from '../../../services/firebase/authService';
+import { hasFirebaseConfig } from '../../../services/firebase/firebase';
 
 interface RecipeCustomizationScreenProps {
   navigation: any;
@@ -57,6 +60,7 @@ const RecipeCustomizationScreen: React.FC<RecipeCustomizationScreenProps> = ({ n
   const [totalCookTime, setTotalCookTime] = useState<number>(0);
   const [hasLoadedRecipe, setHasLoadedRecipe] = useState(false);
   const [autoAdaptApplied, setAutoAdaptApplied] = useState(false);
+  const [savingRecipe, setSavingRecipe] = useState(false);
 
   const [ingredients, setIngredients] = useState<Ingredient[]>([
     {
@@ -252,10 +256,31 @@ const RecipeCustomizationScreen: React.FC<RecipeCustomizationScreenProps> = ({ n
       if (recipeParam?.ingredients?.length) return;
       setLoadingRecipe(true);
       try {
+        if (hasFirebaseConfig) {
+          const firestoreRecipe = await recipeStore.getRecipeById(dishId);
+          if (firestoreRecipe) {
+            applyRecipeData(firestoreRecipe as Recipe);
+            return;
+          }
+        }
+
         const response = await recipeService.getRecipe(dishId);
         const recipeData = response.data?.recipe;
         applyRecipeData(recipeData);
       } catch (error) {
+        const apiMessage =
+          (error as { response?: { data?: { message?: string } } })?.response?.data?.message || '';
+        const awaitingApproval =
+          typeof apiMessage === 'string' && apiMessage.toLowerCase().includes('awaiting approval');
+
+        if (awaitingApproval) {
+          Alert.alert(
+            'Recipe Pending Approval',
+            'This recipe is awaiting admin approval, so it is not available from the public API yet.'
+          );
+          return;
+        }
+
         console.error('Load recipe error:', error);
       } finally {
         setLoadingRecipe(false);
@@ -369,6 +394,57 @@ const RecipeCustomizationScreen: React.FC<RecipeCustomizationScreenProps> = ({ n
           : ing
       ));
       setShowLocalModal(false);
+    }
+  };
+
+  const handleSaveRecipe = async () => {
+    if (savingRecipe) return;
+    setSavingRecipe(true);
+    try {
+      const user = getFirebaseUser();
+      if (!user) {
+        Alert.alert('Login Required', 'Please sign in to save recipes.');
+        return;
+      }
+
+      const selectedIngredients = ingredients
+        .filter((ing) => ing.selected)
+        .map((ing) => ({
+          name: ing.name,
+          quantity: ing.quantity,
+          unit: ing.unit,
+        }));
+
+      const mappedInstructions = instructions.map((step, index) => ({
+        step: index + 1,
+        description: step,
+      }));
+
+      await recipeStore.createRecipe({
+        title: dishName,
+        description: recipeParam?.description || 'AI-generated recipe',
+        cuisine: recipeParam?.cuisine || 'Sri Lankan',
+        category: recipeParam?.category || 'dinner',
+        difficulty: recipeParam?.difficulty || 'medium',
+        prepTime: recipeParam?.prepTime || 0,
+        cookTime: recipeParam?.cookTime || 0,
+        servings: servingSize,
+        ingredients: selectedIngredients,
+        instructions: mappedInstructions,
+        imageUrl: recipeParam?.imageUrl || recipeParam?.image || undefined,
+        ownerId: user.uid,
+        ownerName: user.displayName,
+        publishStatus: 'draft',
+        source: recipeParam ? 'community' : 'ai',
+        externalId: dishId,
+      });
+
+      Alert.alert('Saved', 'Recipe saved to your drafts.');
+    } catch (error) {
+      console.error('Save recipe error:', error);
+      Alert.alert('Error', 'Could not save this recipe right now.');
+    } finally {
+      setSavingRecipe(false);
     }
   };
 
@@ -501,6 +577,16 @@ const RecipeCustomizationScreen: React.FC<RecipeCustomizationScreenProps> = ({ n
 
       {/* Done Button */}
       <View style={styles.footer}>
+        <Button
+          variant="outline"
+          size="large"
+          fullWidth
+          loading={savingRecipe}
+          onPress={handleSaveRecipe}
+          style={styles.saveButton}
+        >
+          Save to Drafts
+        </Button>
         <Button
           variant="primary"
           size="large"
@@ -750,8 +836,10 @@ const styles = StyleSheet.create({
     paddingVertical: moderateScale(SPACING.md),
     borderTopWidth: 1,
     borderTopColor: COLORS.border.light,
+    gap: moderateScale(SPACING.sm),
     ...SHADOWS.medium,
   },
+  saveButton: {},
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

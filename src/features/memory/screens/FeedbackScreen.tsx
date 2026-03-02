@@ -17,6 +17,9 @@ import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../co
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
 import feedbackService from '../../../services/api/feedback.service';
+import feedbackStore from '../../../services/firebase/feedbackStore';
+import { getFirebaseUser } from '../../../services/firebase/authService';
+import { hasFirebaseConfig } from '../../../services/firebase/firebase';
 
 interface FeedbackScreenProps {
   navigation: any;
@@ -33,6 +36,7 @@ const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ navigation, route }) =>
   const { dishName, servingSize, recipeId } = route.params;
 
   const [rating, setRating] = useState(0);
+  const [publicComment, setPublicComment] = useState('');
   const [changes, setChanges] = useState('');
   const [localImprovements, setLocalImprovements] = useState('');
   const [personalTips, setPersonalTips] = useState('');
@@ -47,20 +51,47 @@ const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ navigation, route }) =>
     setLoading(true);
 
     try {
+      const publicCommentTrimmed = publicComment.trim();
       const parts = [
+        publicCommentTrimmed ? `Comment: ${publicCommentTrimmed}` : '',
         changes ? `Changes: ${changes}` : '',
         localImprovements ? `Local Improvements: ${localImprovements}` : '',
         personalTips ? `Tips: ${personalTips}` : '',
       ].filter(Boolean);
       const comment = parts.join('\n');
+      let submitted = false;
 
-      if (recipeId) {
-        await feedbackService.submitFeedback(recipeId, {
-          rating,
-          comment,
-        });
-      } else {
-        await new Promise(resolve => setTimeout(resolve, 500));
+      if (recipeId && hasFirebaseConfig) {
+        const user = getFirebaseUser();
+        if (user) {
+          try {
+            await feedbackStore.submitFeedback(recipeId, {
+              userId: user.uid,
+              userName: user.displayName,
+              userAvatar: user.photoURL,
+              rating,
+              publicComment: publicCommentTrimmed || undefined,
+              comment,
+              dishName,
+            });
+            submitted = true;
+          } catch (error) {
+            console.warn('Firestore feedback failed, falling back to API:', error);
+          }
+        }
+      }
+
+      if (!submitted) {
+        if (recipeId) {
+          await feedbackService.submitFeedback(recipeId, {
+            rating,
+            comment,
+          });
+          submitted = true;
+        } else {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          submitted = true;
+        }
       }
 
       Alert.alert(
@@ -79,7 +110,27 @@ const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ navigation, route }) =>
         ]
       );
     } catch (error) {
-      Alert.alert('Error', 'Failed to submit feedback. Please try again.');
+      const apiMessage =
+        (error as { response?: { data?: { message?: string } } })?.response?.data?.message || '';
+      if (apiMessage.toLowerCase().includes('feedback already submitted')) {
+        Alert.alert(
+          'Already Submitted',
+          'You have already submitted feedback for this recipe.',
+          [
+            {
+              text: 'Done',
+              onPress: () => {
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'MainTabs' }],
+                });
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Error', 'Failed to submit feedback. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -113,6 +164,7 @@ const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ navigation, route }) =>
         {/* Header */}
         <View style={styles.pageIntro}>
           <Text style={styles.headerTitle}>Share Your Experience</Text>
+          {dishName ? <Text style={styles.dishName}>{dishName}</Text> : null}
         </View>
 
         <ScrollView
@@ -151,6 +203,24 @@ const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ navigation, route }) =>
                 {rating === 5 ? 'Perfect!' : rating === 4 ? 'Great!' : rating === 3 ? 'Good!' : rating === 2 ? 'Okay' : 'Needs Work'}
               </Text>
             )}
+          </View>
+
+          {/* Public Comment */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Add your comment</Text>
+            <Text style={styles.sectionDescription}>
+              This comment is visible in the Digital Committee feedback list
+            </Text>
+            <TextInput
+              style={styles.textArea}
+              placeholder="Share a short comment for the community..."
+              placeholderTextColor={COLORS.text.tertiary}
+              value={publicComment}
+              onChangeText={setPublicComment}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
           </View>
 
           {/* Changes Made */}

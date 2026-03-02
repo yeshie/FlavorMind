@@ -18,6 +18,7 @@ export interface Recipe {
   isLocal?: boolean;
   isLocalIngredients?: boolean;
   isPublished?: boolean;
+  publishStatus?: 'draft' | 'pending' | 'approved' | 'rejected';
   author?: string;
   authorId?: string;
   matchScore?: number;

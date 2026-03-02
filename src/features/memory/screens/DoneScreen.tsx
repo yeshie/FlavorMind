@@ -3,6 +3,7 @@ import React from 'react';
 import {
   View,
   Text,
+  ScrollView,
   StyleSheet,
   Image,
 } from 'react-native';
@@ -52,67 +53,73 @@ const DoneScreen: React.FC<DoneScreenProps> = ({ navigation, route }) => {
         end={{ x: 1, y: 1 }}
         style={styles.gradient}
       >
-        {/* Success Icon */}
-        <View style={styles.iconContainer}>
-          <View style={styles.iconCircle}>
-            <Text style={styles.iconText}>OK</Text>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Success Icon */}
+          <View style={styles.iconContainer}>
+            <View style={styles.iconCircle}>
+              <Text style={styles.iconText}>OK</Text>
+            </View>
           </View>
-        </View>
 
-        {/* Success Message */}
-        <View style={styles.messageContainer}>
-          <Text style={styles.title}>Steps Complete!</Text>
-          <Text style={styles.subtitle}>
-            Your {dishName} is ready for the timer
-          </Text>
-          <View style={styles.servingBadge}>
-            <Text style={styles.servingText}>Served {servingSize} {servingSize === 1 ? 'person' : 'people'}</Text>
+          {/* Success Message */}
+          <View style={styles.messageContainer}>
+            <Text style={styles.title}>Steps Complete!</Text>
+            <Text style={styles.subtitle}>
+              Your {dishName} is ready for the timer
+            </Text>
+            <View style={styles.servingBadge}>
+              <Text style={styles.servingText}>Served {servingSize} {servingSize === 1 ? 'person' : 'people'}</Text>
+            </View>
           </View>
-        </View>
 
-        {/* Celebration Image/Icon */}
-        <View style={styles.celebrationContainer}>
-          <Image
-            source={require('../../../assets/icons/sparkle.png')}
-            style={styles.sparkleIcon}
-            resizeMode="contain"
-          />
-          <Text style={styles.celebrationText}>
-            Great job! You've successfully recreated a food memory.
-          </Text>
-        </View>
+          {/* Celebration Image/Icon */}
+          <View style={styles.celebrationContainer}>
+            <Image
+              source={require('../../../assets/icons/sparkle.png')}
+              style={styles.sparkleIcon}
+              resizeMode="contain"
+            />
+            <Text style={styles.celebrationText}>
+              Great job! You've successfully recreated a food memory.
+            </Text>
+          </View>
 
-        {/* Action Buttons */}
-        <View style={styles.actionsContainer}>
-          <Button
-            variant="primary"
-            size="large"
-            fullWidth
-            onPress={handleStartTimer}
-            style={styles.feedbackButton}
-          >
-            Start Timer
-          </Button>
+          {/* Action Buttons */}
+          <View style={styles.actionsContainer}>
+            <Button
+              variant="primary"
+              size="large"
+              fullWidth
+              onPress={handleStartTimer}
+              style={styles.feedbackButton}
+            >
+              Start Timer
+            </Button>
 
-          <Button
-            variant="outline"
-            size="large"
-            fullWidth
-            onPress={handleGoHome}
-            style={styles.homeButton}
-            textStyle={styles.homeButtonText}
-          >
-            Go Back to Home
-          </Button>
-        </View>
+            <Button
+              variant="outline"
+              size="large"
+              fullWidth
+              onPress={handleGoHome}
+              style={styles.homeButton}
+              textStyle={styles.homeButtonText}
+            >
+              Go Back to Home
+            </Button>
+          </View>
 
-        {/* Tips Section */}
-        <View style={styles.tipsContainer}>
-          <Text style={styles.tipsTitle}>Tip</Text>
-          <Text style={styles.tipsText}>
-            Your feedback helps FlavorMind learn your preferences and suggest even better recipes next time!
-          </Text>
-        </View>
+          {/* Tips Section */}
+          <View style={styles.tipsContainer}>
+            <Text style={styles.tipsTitle}>Tip</Text>
+            <Text style={styles.tipsText}>
+              Your feedback helps FlavorMind learn your preferences and suggest even better recipes next time!
+            </Text>
+          </View>
+        </ScrollView>
       </LinearGradient>
     </SafeAreaView>
   );
@@ -124,8 +131,14 @@ const styles = StyleSheet.create({
   },
   gradient: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     padding: moderateScale(SPACING.xl),
     justifyContent: 'center',
+  },
+  scrollView: {
+    flex: 1,
   },
   iconContainer: {
     alignItems: 'center',

@@ -14,6 +14,8 @@ import { Bookmark, ChevronRight, Share2, Sparkles, Star, Trophy } from 'lucide-r
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
+import { getFirebaseUser } from '../../../services/firebase/authService';
+import cookbookStore from '../../../services/firebase/cookbookStore';
 
 interface CookbookThankYouScreenProps {
   navigation: any;
@@ -30,6 +32,7 @@ const CookbookThankYouScreen: React.FC<CookbookThankYouScreenProps> = ({
 }) => {
   const { cookbook } = route.params;
   const [rating, setRating] = useState(0);
+  const [savingLibrary, setSavingLibrary] = useState(false);
 
   const handleRate = (stars: number) => {
     setRating(stars);
@@ -69,8 +72,33 @@ const CookbookThankYouScreen: React.FC<CookbookThankYouScreenProps> = ({
     Alert.alert('Share Cookbook', 'Sharing functionality coming soon!');
   };
 
-  const handleSave = () => {
-    Alert.alert('Saved!', 'Cookbook added to your library');
+  const handleSave = async () => {
+    if (savingLibrary) return;
+    setSavingLibrary(true);
+    try {
+      const user = getFirebaseUser();
+      if (!user) {
+        Alert.alert('Login Required', 'Please sign in to save cookbooks.');
+        return;
+      }
+
+      await cookbookStore.saveCookbookToLibrary(user.uid, {
+        externalId: cookbook.id,
+        source: 'community',
+        title: cookbook.title,
+        coverImageUrl: cookbook.coverImage,
+        author: cookbook.author,
+        rating: cookbook.rating,
+        recipesCount: cookbook.recipesCount,
+      });
+
+      Alert.alert('Saved!', 'Cookbook added to your library');
+    } catch (error) {
+      console.error('Save cookbook error:', error);
+      Alert.alert('Error', 'Could not save this cookbook right now.');
+    } finally {
+      setSavingLibrary(false);
+    }
   };
 
   const getRatingText = (stars: number) => {

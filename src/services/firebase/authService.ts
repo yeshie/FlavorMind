@@ -4,22 +4,45 @@ import axios from 'axios';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  signInWithCredential,
+  GoogleAuthProvider,
+  OAuthProvider,
   updateProfile,
   sendEmailVerification as firebaseSendEmailVerification,
   signOut as firebaseSignOut,
   User,
+  Auth,
 } from 'firebase/auth';
 import { auth, hasFirebaseConfig } from './firebase';
+import { API_CONFIG } from '../../constants/config';
 
-const API_BASE_URL = __DEV__ 
-  ? 'http://192.168.8.218:5000/api/v1'
-  : 'https://your-production-url.com/api/v1';
+const API_BASE_URL = API_CONFIG.BASE_URL;
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
 });
+
+type AuthChangeListener = (isAuthenticated: boolean) => void;
+const authChangeListeners = new Set<AuthChangeListener>();
+
+export const subscribeToAuthChanges = (listener: AuthChangeListener) => {
+  authChangeListeners.add(listener);
+  return () => {
+    authChangeListeners.delete(listener);
+  };
+};
+
+const notifyAuthChange = (isAuth: boolean) => {
+  authChangeListeners.forEach((listener) => {
+    try {
+      listener(isAuth);
+    } catch (error) {
+      console.warn('Auth listener error:', error);
+    }
+  });
+};
 
 const requireFirebaseAuth = () => {
   if (!hasFirebaseConfig || !auth) {
@@ -57,6 +80,45 @@ const formatAuthError = (error: any): string => {
   }
 
   return error?.response?.data?.message || error?.message || 'Authentication failed';
+};
+
+const completeFirebaseLogin = async (
+  firebaseAuth: Auth,
+  user: User,
+  options?: { rememberMe?: boolean; email?: string }
+): Promise<AuthResponse> => {
+  const idToken = await user.getIdToken();
+  const refreshToken = user.refreshToken;
+
+  const response = await apiClient.post('/auth/login', { idToken });
+  if (!response.data?.success) {
+    await firebaseSignOut(firebaseAuth);
+    return { success: false, message: response.data?.message || 'Login failed' };
+  }
+
+  const mappedUser = response.data?.data?.user || mapFirebaseUser(user);
+
+  await AsyncStorage.setItem('authToken', idToken);
+  if (refreshToken) {
+    await AsyncStorage.setItem('refreshToken', refreshToken);
+  }
+  await AsyncStorage.setItem('userData', JSON.stringify(mappedUser));
+
+  if (options?.rememberMe && options.email) {
+    await AsyncStorage.setItem('rememberMe', 'true');
+    await AsyncStorage.setItem('userEmail', options.email);
+  } else {
+    await AsyncStorage.removeItem('rememberMe');
+    await AsyncStorage.removeItem('userEmail');
+  }
+
+  notifyAuthChange(true);
+
+  return {
+    success: true,
+    message: response.data?.message || 'Login successful',
+    data: { token: idToken, user: mappedUser },
+  };
 };
 
 export interface AuthUser {
@@ -98,15 +160,7 @@ export const registerWithEmail = async (
       console.warn('Email verification not sent:', verificationError);
     }
 
-    const idToken = await credential.user.getIdToken();
-    await apiClient.post('/auth/login', { idToken });
-
-    await firebaseSignOut(firebaseAuth);
-
-    return {
-      success: true,
-      message: 'Registration successful. Please login.',
-    };
+    return await completeFirebaseLogin(firebaseAuth, credential.user);
   } catch (error: any) {
     console.error('Register error:', error);
     try {
@@ -131,37 +185,7 @@ export const loginWithEmail = async (
   try {
     const firebaseAuth = requireFirebaseAuth();
     const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
-    const idToken = await credential.user.getIdToken();
-    const refreshToken = credential.user.refreshToken;
-
-    const response = await apiClient.post('/auth/login', { idToken });
-
-    if (!response.data?.success) {
-      await firebaseSignOut(firebaseAuth);
-      return { success: false, message: response.data?.message || 'Login failed' };
-    }
-
-    const user = response.data?.data?.user || mapFirebaseUser(credential.user);
-
-    await AsyncStorage.setItem('authToken', idToken);
-    if (refreshToken) {
-      await AsyncStorage.setItem('refreshToken', refreshToken);
-    }
-    await AsyncStorage.setItem('userData', JSON.stringify(user));
-
-    if (rememberMe) {
-      await AsyncStorage.setItem('rememberMe', 'true');
-      await AsyncStorage.setItem('userEmail', email);
-    } else {
-      await AsyncStorage.removeItem('rememberMe');
-      await AsyncStorage.removeItem('userEmail');
-    }
-
-    return {
-      success: true,
-      message: response.data?.message || 'Login successful',
-      data: { token: idToken, user },
-    };
+    return await completeFirebaseLogin(firebaseAuth, credential.user, { rememberMe, email });
   } catch (error: any) {
     console.error('Login error:', error);
     try {
@@ -180,38 +204,53 @@ export const loginWithEmail = async (
 
 // ============= SOCIAL AUTH (GOOGLE/APPLE) =============
 
-export const loginWithGoogle = async (): Promise<AuthResponse> => {
+export const loginWithGoogleIdToken = async (
+  idToken: string,
+  accessToken?: string
+): Promise<AuthResponse> => {
   try {
-    // TODO: Implement Google Sign-In
-    // Use @react-native-google-signin/google-signin
-    console.log('Google Sign-In: To be implemented');
-    
-    return {
-      success: false,
-      message: 'Google Sign-In will be implemented with Firebase SDK',
-    };
+    const firebaseAuth = requireFirebaseAuth();
+    const credential = GoogleAuthProvider.credential(idToken, accessToken);
+    const userCredential = await signInWithCredential(firebaseAuth, credential);
+    return await completeFirebaseLogin(firebaseAuth, userCredential.user);
   } catch (error: any) {
+    console.error('Google login error:', error);
+    try {
+      if (auth?.currentUser) {
+        await firebaseSignOut(auth);
+      }
+    } catch (signOutError) {
+      console.warn('Firebase sign-out failed after Google login error:', signOutError);
+    }
     return {
       success: false,
-      message: error.message || 'Google Sign-In failed',
+      message: formatAuthError(error),
     };
   }
 };
 
-export const loginWithApple = async (): Promise<AuthResponse> => {
+export const loginWithAppleIdToken = async (
+  idToken: string,
+  rawNonce?: string
+): Promise<AuthResponse> => {
   try {
-    // TODO: Implement Apple Sign-In
-    // Use @invertase/react-native-apple-authentication
-    console.log('Apple Sign-In: To be implemented');
-    
-    return {
-      success: false,
-      message: 'Apple Sign-In will be implemented with Firebase SDK',
-    };
+    const firebaseAuth = requireFirebaseAuth();
+    const provider = new OAuthProvider('apple.com');
+    const credential = provider.credential({ idToken, rawNonce });
+    const userCredential = await signInWithCredential(firebaseAuth, credential);
+    return await completeFirebaseLogin(firebaseAuth, userCredential.user);
   } catch (error: any) {
+    console.error('Apple login error:', error);
+    try {
+      if (auth?.currentUser) {
+        await firebaseSignOut(auth);
+      }
+    } catch (signOutError) {
+      console.warn('Firebase sign-out failed after Apple login error:', signOutError);
+    }
     return {
       success: false,
-      message: error.message || 'Apple Sign-In failed',
+      message: formatAuthError(error),
     };
   }
 };
@@ -253,6 +292,8 @@ export const verifyOTP = async (
         await AsyncStorage.setItem('refreshToken', response.data.data.refreshToken);
       }
       await AsyncStorage.setItem('userData', JSON.stringify(user));
+
+      notifyAuthChange(true);
       
       return {
         success: true,
@@ -304,6 +345,13 @@ export const getCurrentUser = async (): Promise<AuthUser | null> => {
   }
 };
 
+export const getFirebaseUser = (): User | null => {
+  if (!hasFirebaseConfig || !auth) {
+    return null;
+  }
+  return auth.currentUser;
+};
+
 export const getRememberedEmail = async (): Promise<string | null> => {
   try {
     const rememberMe = await AsyncStorage.getItem('rememberMe');
@@ -336,6 +384,7 @@ export const logout = async (): Promise<void> => {
     if (rememberMe !== 'true') {
       await AsyncStorage.removeItem('userEmail');
     }
+    notifyAuthChange(false);
   } catch (error) {
     console.error('Logout error:', error);
   }
