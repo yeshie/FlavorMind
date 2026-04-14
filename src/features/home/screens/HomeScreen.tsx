@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   Text,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../../constants/theme';
 import * as Location from 'expo-location';
@@ -24,28 +26,111 @@ import { SeasonalItem, FeatureItem, RecipeRecommendation } from '../types/home.t
 import { getCurrentUser } from '../../../services/firebase/authService';
 import recipeService, { Recipe } from '../../../services/api/recipe.service';
 import seasonalService, { SeasonalFood } from '../../../services/api/seasonal.service';
-import userService from '../../../services/api/user.service';
-import memoryService from '../../../services/api/memory.service';
+import userService, { UserProfile } from '../../../services/api/user.service';
+import useRecommendations from '../hooks/useRecommendations';
 
 interface HomeScreenProps {
   navigation: any;
 }
 
+type HomeLocation = {
+  city?: string;
+  country?: string;
+};
+
+const LAST_KNOWN_LOCATION_KEY = 'home_last_known_location';
+
+const toNonEmptyString = (value?: string | null) => {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed || undefined;
+};
+
+const resolveUserName = (user?: Partial<UserProfile> | null) => {
+  const displayName = toNonEmptyString(user?.displayName);
+  if (displayName) {
+    return displayName;
+  }
+
+  const name = toNonEmptyString(user?.name);
+  if (name) {
+    return name;
+  }
+
+  const email = toNonEmptyString(user?.email);
+  if (email) {
+    return email.split('@')[0] || undefined;
+  }
+
+  return undefined;
+};
+
+const resolveProfileImage = (
+  user?: Pick<UserProfile, 'photoUrl' | 'photoURL'> | null
+) => toNonEmptyString(user?.photoUrl || user?.photoURL || undefined);
+
+const normalizeLocation = (location?: HomeLocation | null) => {
+  const city = toNonEmptyString(location?.city);
+  const country = toNonEmptyString(location?.country);
+
+  if (!city && !country) {
+    return undefined;
+  }
+
+  return { city, country };
+};
+
+const readCachedLocation = async (): Promise<HomeLocation | undefined> => {
+  try {
+    const raw = await AsyncStorage.getItem(LAST_KNOWN_LOCATION_KEY);
+    if (!raw) {
+      return undefined;
+    }
+
+    return normalizeLocation(JSON.parse(raw));
+  } catch (error) {
+    console.warn('Failed to read cached home location:', error);
+    return undefined;
+  }
+};
+
+const cacheLocation = async (location?: HomeLocation) => {
+  const normalized = normalizeLocation(location);
+  if (!normalized) {
+    return;
+  }
+
+  try {
+    await AsyncStorage.setItem(
+      LAST_KNOWN_LOCATION_KEY,
+      JSON.stringify(normalized)
+    );
+  } catch (error) {
+    console.warn('Failed to cache home location:', error);
+  }
+};
+
 const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('Guest');
-  const [profileLocation, setProfileLocation] = useState<{ city?: string; country?: string } | undefined>(undefined);
-  const [deviceLocation, setDeviceLocation] = useState<{ city?: string; country?: string } | undefined>(undefined);
+  const [profileLocation, setProfileLocation] = useState<HomeLocation | undefined>(undefined);
+  const [deviceLocation, setDeviceLocation] = useState<HomeLocation | undefined>(undefined);
+  const [cachedLocation, setCachedLocation] = useState<HomeLocation | undefined>(undefined);
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [seasonalItems, setSeasonalItems] = useState<SeasonalItem[]>([]);
   const [recommendations, setRecommendations] = useState<RecipeRecommendation[]>([]);
+  const [hasRecommendationSignals, setHasRecommendationSignals] = useState(false);
   const [deviceCoords, setDeviceCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [memoryQuery, setMemoryQuery] = useState('');
   const [creatingMemory, setCreatingMemory] = useState(false);
+  const { loadRecommendations } = useRecommendations();
   const locationToShow = useMemo(
-    () => profileLocation || deviceLocation,
-    [profileLocation, deviceLocation]
+    () => profileLocation || deviceLocation || cachedLocation,
+    [profileLocation, deviceLocation, cachedLocation]
   );
 
   const features: FeatureItem[] = [
@@ -119,49 +204,51 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }
 
     try {
+      const localUser = await getCurrentUser();
+      const localName = resolveUserName(localUser);
+      const localPhoto = resolveProfileImage(localUser);
+
+      if (localName) {
+        setUserName(localName);
+      }
+      if (localPhoto) {
+        setProfileImageUrl(localPhoto);
+      }
+
       const seasonalParams = {
         limit: 10,
         ...(deviceCoords ? { lat: deviceCoords.lat, lng: deviceCoords.lng } : {}),
       };
 
-      const [profileResult, seasonalResult, recipeResult] = await Promise.allSettled([
+      const [profileResult, seasonalResult] = await Promise.allSettled([
         userService.getProfile(),
         seasonalService.getSeasonalFoods(seasonalParams),
-        recipeService.getRecipes({ limit: 5 }),
       ]);
 
+      const profile =
+        profileResult.status === 'fulfilled'
+          ? profileResult.value?.data?.user
+          : null;
+
       if (profileResult.status === 'fulfilled') {
-        const profile = profileResult.value?.data?.user;
         if (profile) {
-          const profileName =
-            profile.displayName ||
-            profile.name ||
-            (profile.email ? profile.email.split('@')[0] : '') ||
-            'Guest';
-          setUserName(profileName);
-          setProfileImageUrl(profile.photoUrl || profile.photoURL || null);
-          if (profile.location) {
-            setProfileLocation({
-              city: profile.location.city,
-              country: profile.location.country,
-            });
-          } else {
-            setProfileLocation(undefined);
+          const profileName = resolveUserName(profile);
+          setUserName(profileName || localName || 'Guest');
+          setProfileImageUrl(resolveProfileImage(profile) || localPhoto || null);
+
+          const nextProfileLocation = normalizeLocation(profile.location);
+          setProfileLocation(nextProfileLocation);
+          if (nextProfileLocation) {
+            setCachedLocation(nextProfileLocation);
+            void cacheLocation(nextProfileLocation);
           }
         } else {
-          setUserName('Guest');
-          setProfileImageUrl(null);
-          setProfileLocation(undefined);
+          setUserName(localName || 'Guest');
+          setProfileImageUrl(localPhoto || null);
         }
       } else {
-        const localUser = await getCurrentUser();
-        const localName =
-          localUser?.displayName ||
-          (localUser?.email ? localUser.email.split('@')[0] : '') ||
-          'Guest';
-        setUserName(localName);
-        setProfileImageUrl(localUser?.photoURL || null);
-        setProfileLocation(undefined);
+        setUserName(localName || 'Guest');
+        setProfileImageUrl(localPhoto || null);
       }
 
       if (seasonalResult.status === 'fulfilled') {
@@ -171,19 +258,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         setSeasonalItems([]);
       }
 
-      if (recipeResult.status === 'fulfilled') {
-        const recipes = recipeResult.value.data.recipes || [];
-        setRecommendations(recipes.map(mapRecipeRecommendation));
-      } else {
-        setRecommendations([]);
-      }
+      const recommendationResult = await loadRecommendations(profile);
+      setHasRecommendationSignals(recommendationResult.hasSignals);
+      setRecommendations(recommendationResult.recipes.map(mapRecipeRecommendation));
     } catch (error) {
       console.error('Home data load error:', error);
+      setRecommendations([]);
+      setHasRecommendationSignals(false);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [deviceCoords]);
+  }, [deviceCoords, loadRecommendations]);
 
   // Handlers
   const handleRefresh = async () => {
@@ -191,7 +277,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   };
 
   const handleNotificationPress = () => {
-    Alert.alert('Notifications', 'You have 3 new notifications');
+    navigation.navigate('Notifications');
   };
 
   const handleProfilePress = () => {
@@ -207,15 +293,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
     setCreatingMemory(true);
     try {
-      const response = await memoryService.createMemory({
-        description: query.trim(),
-        isVoiceInput: false,
+      const similarResponse = await recipeService.getSimilarRecipes({
+        q: query.trim(),
+        limit: 6,
       });
-      const memory = response.data.memory as any;
+      const recipes = similarResponse.data.recipes || [];
       navigation.navigate('SimilarDishesScreen', {
         memoryQuery: query.trim(),
-        memoryId: memory.id,
-        similarDishes: memory?.similarDishes,
+        similarDishes: recipes,
       });
       setMemoryQuery('');
     } catch (error) {
@@ -249,12 +334,55 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   };
 
   const handleRecipePress = (recipe: RecipeRecommendation) => {
-    Alert.alert(recipe.title, 'View recipe details');
+    navigation.navigate('RecipeDescription', {
+      recipeId: recipe.id,
+      recipe,
+    });
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      void loadHomeData();
+    }, [loadHomeData])
+  );
+
   useEffect(() => {
-    loadHomeData();
-  }, [loadHomeData]);
+    let isMounted = true;
+
+    const seedCachedHeaderState = async () => {
+      try {
+        const [localUser, storedLocation] = await Promise.all([
+          getCurrentUser(),
+          readCachedLocation(),
+        ]);
+
+        if (!isMounted) {
+          return;
+        }
+
+        const localName = resolveUserName(localUser);
+        const localPhoto = resolveProfileImage(localUser);
+
+        if (localName) {
+          setUserName(localName);
+        }
+        if (localPhoto) {
+          setProfileImageUrl(localPhoto);
+        }
+        if (storedLocation) {
+          setCachedLocation(storedLocation);
+        }
+      } catch (error) {
+        console.warn('Failed to seed home header state:', error);
+      }
+    };
+
+    void seedCachedHeaderState();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -280,10 +408,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             longitude: position.coords.longitude,
           });
           if (geo) {
-            setDeviceLocation({
+            const nextDeviceLocation = normalizeLocation({
               city: geo.city || geo.subregion || geo.region || undefined,
               country: geo.country || undefined,
             });
+            if (nextDeviceLocation) {
+              setDeviceLocation(nextDeviceLocation);
+              setCachedLocation(nextDeviceLocation);
+              void cacheLocation(nextDeviceLocation);
+            }
           }
         }
       } catch (error) {
@@ -359,13 +492,21 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             onRecipePress={handleRecipePress}
           />
         ) : (
-          !loading && (
+          !loading && hasRecommendationSignals && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateText}>
-                Personalized recipe recommendations will appear here.
+                We could not find strong matches yet. Keep searching, saving, or cooking to sharpen your suggestions.
               </Text>
             </View>
           )
+        )}
+
+        {!loading && !hasRecommendationSignals && (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>
+              Personalized recipes will appear after you search, save, or cook a few dishes.
+            </Text>
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>

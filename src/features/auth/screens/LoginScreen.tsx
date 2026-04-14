@@ -19,7 +19,6 @@ import * as Google from 'expo-auth-session/providers/google';
 import { makeRedirectUri, ResponseType } from 'expo-auth-session';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
-import Constants from 'expo-constants';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Input from '../../../common/components/Input/Input';
@@ -59,12 +58,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   };
 
-  const useProxy = process.env.EXPO_PUBLIC_USE_AUTH_PROXY === 'true'
-    || Constants.appOwnership === 'expo';
-
   const redirectUri = makeRedirectUri({
     scheme: 'flavormind',
-    useProxy,
+    path: 'oauth',
   });
 
   const [request, response, promptAsync] = Google.useAuthRequest({
@@ -171,7 +167,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     }
 
     setLoading(true);
-    const result = await promptAsync({ useProxy });
+    const result = await promptAsync();
     if (result.type !== 'success') {
       setLoading(false);
     }

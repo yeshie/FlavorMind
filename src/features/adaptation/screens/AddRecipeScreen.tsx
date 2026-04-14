@@ -93,7 +93,7 @@ const AddRecipeScreen: React.FC<AddRecipeScreenProps> = ({ navigation }) => {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaType.Images,
+      mediaTypes: ['images'],
       quality: 0.8,
     });
 
@@ -149,7 +149,8 @@ const AddRecipeScreen: React.FC<AddRecipeScreenProps> = ({ navigation }) => {
         instructions: parsedInstructions,
         imageUrl: imageUrl || null,
         ownerId: user.uid,
-        ownerName: user.displayName,
+        ownerName: user.displayName || undefined,
+        ownerPhotoUrl: user.photoURL || undefined,
         publishStatus: publish ? 'pending' : 'draft',
         source: 'user',
       });

@@ -16,6 +16,7 @@ import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
 import { getFirebaseUser } from '../../../services/firebase/authService';
 import cookbookStore from '../../../services/firebase/cookbookStore';
+import { buildRemoteImageSource } from '../../../common/utils';
 
 interface CookbookCreationSummaryScreenProps {
   navigation: any;
@@ -29,6 +30,10 @@ interface CookbookCreationSummaryScreenProps {
         occupation?: string;
         aboutAuthor?: string;
         thankYouMessage?: string;
+        coverImageUrl?: string | null;
+        introImageUrl?: string | null;
+        thankYouImageUrl?: string | null;
+        categories?: string[];
       };
     };
   };
@@ -43,12 +48,12 @@ const CookbookCreationSummaryScreen: React.FC<CookbookCreationSummaryScreenProps
 
   const handlePublish = () => {
     Alert.alert(
-      'Publish Cookbook',
-      'Your cookbook will be published and shared with the FlavorMind community. Continue?',
+      'Submit Cookbook',
+      'Your cookbook will be submitted for committee review before it becomes public. Continue?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Publish',
+          text: 'Submit',
           onPress: async () => {
             setIsPublishing(true);
 
@@ -60,36 +65,32 @@ const CookbookCreationSummaryScreen: React.FC<CookbookCreationSummaryScreenProps
               }
 
               const recipeIds = selectedRecipes.map((recipe) => recipe.id);
-              const created = await cookbookStore.createCookbook({
+              await cookbookStore.createCookbook({
                 title: coverData.title,
                 ownerId: user.uid,
                 authorName: coverData.authorName,
+                coverImageUrl: coverData.coverImageUrl || null,
+                introImageUrl: coverData.introImageUrl || null,
+                thankYouImageUrl: coverData.thankYouImageUrl || null,
                 introduction: coverData.introduction,
                 occupation: coverData.occupation,
                 aboutAuthor: coverData.aboutAuthor,
                 thankYouMessage: coverData.thankYouMessage,
+                categories: coverData.categories || [],
+                shareVisibility: 'public',
                 recipes: recipeIds,
                 recipesCount: recipeIds.length,
-                publishStatus: 'approved',
+                publishStatus: 'pending',
               });
 
               Alert.alert(
-                'Published!',
-                'Your cookbook has been published successfully!',
+                'Submitted!',
+                'Your cookbook has been submitted for review and will appear publicly after approval.',
                 [
                   {
-                    text: 'View Cookbook',
+                    text: 'Go to Library',
                     onPress: () => {
-                      navigation.navigate('CookbookReference', {
-                        cookbook: {
-                          id: created.id,
-                          title: created.title,
-                          author: created.authorName || coverData.authorName,
-                          coverImage: created.coverImageUrl,
-                          rating: 0,
-                          recipesCount: recipeIds.length,
-                        },
-                      });
+                      navigation.navigate('DigitalCookbook');
                     },
                   },
                 ]
@@ -132,9 +133,17 @@ const CookbookCreationSummaryScreen: React.FC<CookbookCreationSummaryScreenProps
       >
         {/* Cover Preview */}
         <View style={styles.coverPreview}>
-          <View style={styles.coverImagePlaceholder}>
-            <BookOpen size={scaleFontSize(72)} color={COLORS.pastelOrange.dark} strokeWidth={2} style={styles.coverImageIcon} />
-          </View>
+          {coverData.coverImageUrl ? (
+            <Image
+              source={buildRemoteImageSource(coverData.coverImageUrl)}
+              style={styles.coverImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.coverImagePlaceholder}>
+              <BookOpen size={scaleFontSize(72)} color={COLORS.pastelOrange.dark} strokeWidth={2} style={styles.coverImageIcon} />
+            </View>
+          )}
           <Text style={styles.coverTitle}>{coverData.title}</Text>
           <Text style={styles.coverAuthor}>by {coverData.authorName}</Text>
         </View>
@@ -162,6 +171,13 @@ const CookbookCreationSummaryScreen: React.FC<CookbookCreationSummaryScreenProps
               <Text style={styles.summaryValue}>{coverData.occupation}</Text>
             </View>
           )}
+
+          {coverData.categories?.length ? (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Categories:</Text>
+              <Text style={styles.summaryValue}>{coverData.categories.join(', ')}</Text>
+            </View>
+          ) : null}
 
           <View style={styles.divider} />
 
@@ -203,7 +219,7 @@ const CookbookCreationSummaryScreen: React.FC<CookbookCreationSummaryScreenProps
               <View key={recipe.id} style={styles.recipePreviewCard}>
                 <Text style={styles.recipeNumber}>{index + 1}</Text>
                 <Image
-                  source={{ uri: recipe.image }}
+                  source={buildRemoteImageSource(recipe.image) || require('../../../assets/icons/book.png')}
                   style={styles.recipePreviewImage}
                   resizeMode="cover"
                 />
@@ -221,7 +237,7 @@ const CookbookCreationSummaryScreen: React.FC<CookbookCreationSummaryScreenProps
           <View style={styles.infoBoxContent}>
             <Text style={styles.infoBoxTitle}>Ready to Publish?</Text>
             <Text style={styles.infoBoxText}>
-              Once published, your cookbook will be available to the FlavorMind community. You can edit or unpublish it anytime from your library.
+              Once submitted, your cookbook will be reviewed by the committee before it becomes available to the FlavorMind community.
             </Text>
           </View>
         </View>
@@ -270,7 +286,7 @@ const CookbookCreationSummaryScreen: React.FC<CookbookCreationSummaryScreenProps
           loading={isPublishing}
           style={styles.publishButton}
         >
-          Publish Cookbook
+          Submit Cookbook
         </Button>
       </View>
     </SafeAreaView>
@@ -325,6 +341,12 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.lg,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: moderateScale(SPACING.lg),
+  },
+  coverImage: {
+    width: moderateScale(200),
+    height: moderateScale(260),
+    borderRadius: BORDER_RADIUS.lg,
     marginBottom: moderateScale(SPACING.lg),
   },
   coverImageIcon: {

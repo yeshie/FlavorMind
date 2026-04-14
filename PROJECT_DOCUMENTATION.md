@@ -1,368 +1,356 @@
-﻿# FlavorMind Project Documentation
+# FlavorMind Workspace Documentation
 
-Generated: February 11, 2026
+Last updated: March 10, 2026
 
-## Overview
+This document explains what the app does, the full screen flow, how the frontend talks to backend/Firebase, and what the AI-powered parts do (as seen from this repo).
 
-FlavorMind is a React Native (Expo) mobile app that provides AI-assisted cooking features, local ingredient adaptation, memory-based recipe generation, smart scaling, and community cookbooks. The frontend lives in this repo; backend and AI model logic are accessed via HTTP APIs.
+## What The App Does (User View)
+
+FlavorMind is an Expo/React Native cooking app with these core journeys:
+
+- Memory-based cooking: describe a food memory, get suggested dishes, pick one, customize, cook step-by-step, run a timer, then leave feedback.
+- Local adaptation: search an ingredient/dish and get local substitutes plus an ingredient guide; browse seasonal ingredients and suggested recipes.
+- Smart scaling: describe what ingredient amount you have and get scaled recipe suggestions.
+- Search: search recipes; show “adaptations” returned by backend; keep local search history.
+- Digital cookbook: show published/draft recipes and saved items; create recipes (Firestore) and submit them for approval.
+
+## Repo Layout
+
+- `App.tsx`: app entry; mounts `RootNavigator`.
+- `src/navigation/*`: navigation setup (Splash/Auth/Main Tabs + stacks).
+- `src/features/*`: UI screens and feature components.
+- `src/services/api/*`: HTTP client + API service wrappers.
+- `src/services/firebase/*`: Firebase init + Firestore stores used by some features.
+- `scripts/firebase/*`: admin scripts to seed Firestore / set admin claim.
 
 ## Tech Stack
 
-- Expo SDK 54 with React Native 0.81.5
-- React 19.1
-- React Navigation (native stack + bottom tabs)
-- Axios for HTTP
-- Firebase (Auth, Firestore, Storage) with AsyncStorage persistence
-- Expo modules: `expo-location`, `expo-image-picker`, `expo-linear-gradient`
+- Expo SDK 54, React Native 0.81.5, React 19.1
+- React Navigation: native stack + bottom tabs
+- HTTP: Axios (`src/services/api/client.ts`)
+- Firebase: Auth + Firestore + Storage (`src/services/firebase/firebase.ts`)
+- Storage: AsyncStorage
+- Expo modules used: location, image picker, linear gradient
 - Icons: `lucide-react-native`
 
-## Environment Configuration
+## Configuration (Env Vars)
 
-Environment variables are defined via Expo `EXPO_PUBLIC_*` and are expected at runtime.
+Environment variables must be exposed to Expo using the `EXPO_PUBLIC_*` prefix.
 
-- `EXPO_PUBLIC_API_URL`
-  Base backend API URL. Example in `.env.example`: `http://localhost:5000/api/v1`.
-- `EXPO_PUBLIC_AUTH_PROVIDER`
-  Auth provider selector. Present in `.env.example`, not referenced in code.
-- Firebase settings:
+- Backend
+  - `EXPO_PUBLIC_API_URL`: backend base URL (example in `.env.example`: `http://localhost:5000/api/v1`)
+  - `EXPO_PUBLIC_AI_URL` (optional): separate AI service base URL for FAISS retrieval + recipe generation (example: `http://localhost:8000` or an `https://*.ngrok-free.app` root URL). This is used by `/recipes/similar` and `/recipes/generate` so your retrieval/generation service can be deployed independently.
+    - If you can only expose one public URL (e.g., one ngrok tunnel), set `EXPO_PUBLIC_AI_URL` to the same value as `EXPO_PUBLIC_API_URL`.
+    - Keep local adaptation (`/recipes/local-adapt`) and smart scaling (`/recipes/scale-query`) on the main API unless your AI service also exposes those routes.
+- Firebase (enables Firebase features only when all are set)
   - `EXPO_PUBLIC_FIREBASE_API_KEY`
   - `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`
   - `EXPO_PUBLIC_FIREBASE_PROJECT_ID`
   - `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET`
   - `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
   - `EXPO_PUBLIC_FIREBASE_APP_ID`
-- `EXPO_PUBLIC_DOA_API_KEY`
-  Intended for DOA (Department of Agriculture) integrations; direct usage is not implemented in the frontend.
+- OAuth (wired in `src/services/firebase/authService.ts`; values expected in env)
+  - `EXPO_PUBLIC_GOOGLE_*_CLIENT_ID`
+  - `EXPO_PUBLIC_USE_AUTH_PROXY`
+- DOA
+  - `EXPO_PUBLIC_DOA_API_KEY` (there is `DOA_CONFIG`, but the API wrapper file is currently empty)
 
-Important: actual values should be in `.env` (not committed). `.env.example` is the template.
+Runtime config source:
 
-## Entry and Navigation Architecture
+- `src/constants/config.ts`: `API_CONFIG.BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://api.flavormind.com'`
+- `src/constants/config.ts`: `AI_CONFIG.BASE_URL = process.env.EXPO_PUBLIC_AI_URL || API_CONFIG.BASE_URL`
 
-- `App.tsx` is the entry point and sets up Safe Area and the Root Navigator.
-- `RootNavigator.tsx` handles the splash screen and decides between Auth and Main app based on a stored auth token.
-- `AuthNavigator.tsx` contains Login, Register, OTP login, and Forgot Password flows.
-- `BottomTabNavigator.tsx` defines tabs (Home, Memory, Create, Search, Library) and wraps them in a stack with a common header.
+## Navigation Architecture (How Screens Connect)
 
-## Integration Layers
+Entry:
 
-### Backend API Integration
+- `App.tsx` -> `src/navigation/RootNavigator.tsx`
 
-- Base URL is hard-coded in two files for dev usage:
-  - `src/services/api/client.ts` and `src/services/firebase/authService.ts` use `http://192.168.8.218:5000/api/v1` when `__DEV__` is true.
-  - Production URL is a placeholder (`https://your-production-url.com/api/v1`).
-- The Axios client attaches `Authorization: Bearer <token>` from AsyncStorage.
-- On `401`, the client attempts to refresh the Firebase ID token using Firebase Secure Token API and retries the request.
-
-Key backend endpoints used by the app:
-
-- Auth: `/auth/login`, `/auth/send-otp`, `/auth/verify-otp`, `/auth/forgot-password`, `/auth/me`
-- Recipes: `/recipes`, `/recipes/:id`, `/recipes/search`, `/recipes/similar`, `/recipes/local-adapt`, `/recipes/scale-query`, `/recipes/generate`, `/recipes/upload-image`
-- Memories: `/memories`, `/memories/:id`
-- Seasonal: `/seasonal`
-- Cookbook: `/cookbook`, `/cookbooks`, `/my-cookbook`
-- Feedback: `/feedback/recipes/:recipeId`, `/feedback/:feedbackId`
-- Ingredients: `/ingredients/guides`, `/ingredients/adaptations`
-
-### Firebase Integration
-
-- `firebase.ts` initializes Firebase and exports `auth`, `db`, and `storage`.
-- Auth persistence uses `AsyncStorage` for React Native.
-- `authService.ts` uses Firebase Email/Password login, then posts the ID token to the backend.
-- Tokens and profile data are stored in AsyncStorage:
-  - `authToken`, `refreshToken`, `userData`, `rememberMe`, `userEmail`.
-
-### AI/Model Integration (via Backend)
-
-The frontend does not run AI locally. It calls backend endpoints that are expected to be AI-powered:
-
-- Similar dishes: `/recipes/similar`
-- Local ingredient adaptation: `/recipes/local-adapt`
-- Ingredient-based scaling: `/recipes/scale-query`
-- Recipe generation: `/recipes/generate`
-- Memory flow: `/memories` with polling for AI processing completion
-
-### External Data (Seasonal / DOA)
-
-- Seasonal items are fetched from `/seasonal` and displayed as "Connected to DOA Sri Lanka".
-- `DOA_CONFIG` exists in `src/constants/config.ts`, but there is no direct frontend usage.
-
-### Local Storage
-
-- AsyncStorage is used for auth tokens, profile data, and search history.
-- Search history is stored under `search_history` in `SearchRecipeScreen.tsx`.
-
-## Feature Flows (High-Level)
-
-- Auth Flow:
-  - Login/Register/OTP screens call Firebase + backend auth endpoints.
-  - Tokens stored in AsyncStorage.
-  - RootNavigator switches to MainTabs when authenticated.
-
-- Memory-Based Cooking:
-  - `MemoryScreen` -> create memory (`/memories`) -> `SimilarDishesScreen` -> `RecipeCustomizationScreen` -> `CookingStepsScreen` -> `DoneScreen` -> `CookingTimerScreen` -> `FeedbackScreen`.
-
-- Local Adaptation:
-  - `LocalAdaptationScreen` uses `/recipes/search` and `/recipes/local-adapt` for swaps.
-  - Ingredient guides fetched via `/ingredients/guides`.
-
-- Smart Scaling:
-  - `SmartScalingScreen` -> `ScaledRecipeResultsScreen` uses `/recipes/scale-query`.
-
-- Seasonal Foods:
-  - Home/LocalAdaptation -> `SeasonalFoodScreen` -> suggestions via `/recipes/similar` or `/recipes/generate`.
-
-- Cookbook Creation:
-  - `DigitalCookbookScreen` -> `SelectRecipesPageScreen` -> `CookbookCoverSetupScreen` -> `CookbookCreationSummaryScreen` -> `CookbookReferenceScreen`.
-
-- Community:
-  - `DigitalCommitteeScreen` -> `RecipeDescriptionScreen` or `CookbookReferenceScreen` -> (cookbook flows).
-
-## Directory and File Breakdown
-
-## Root
-
-- `.env` Local environment values (not versioned).
-- `.env.example` Template for environment variables.
-- `.expo/` Expo runtime metadata.
-- `.git/` Git repository metadata.
-- `.gitignore` Git ignore rules.
-- `.qodo/` Editor/automation support folder.
-- `.vscode/` Editor configuration.
-- `App.tsx` App entry point. Wraps `RootNavigator` in `SafeAreaProvider` and sets `StatusBar` color.
-- `app.json` Expo app configuration (name, icons, permissions, bundle IDs).
-- `cspell.json` Spell checker configuration.
-- `package.json` Project dependencies and scripts (`expo start`, platform runs, `setup-assets`).
-- `package-lock.json` NPM lockfile.
-- `tsconfig.json` TypeScript configuration.
-- `TODO.md` Project notes; contains cookbook flow tasks and testing notes.
-
-## src/assets
-
-- `src/assets/icon.png` App icon used across the app.
-- `src/assets/splash-icon.png` Splash icon.
-- `src/assets/adaptive-icon.png` Android adaptive icon.
-- `src/assets/favicon.png` Web favicon.
-- `src/assets/icons/bell.png`
-- `src/assets/icons/book.png`
-- `src/assets/icons/chart.png`
-- `src/assets/icons/clock.png`
-- `src/assets/icons/community.png`
-- `src/assets/icons/home.png`
-- `src/assets/icons/leaf.png`
-- `src/assets/icons/location.png`
-- `src/assets/icons/memory.png`
-- `src/assets/icons/microphone.png`
-- `src/assets/icons/plus.png`
-- `src/assets/icons/ruler.png`
-- `src/assets/icons/search.png`
-- `src/assets/icons/sparkle.png`
-- `src/assets/icons/swap.png`
-- `src/assets/icons/user.png`
-
-## src/constants
-
-- `src/constants/config.ts` App config and API defaults (base URLs, DOA config, app name). Note: `API_CONFIG` is not used by the API client.
-- `src/constants/theme.ts` Design system: colors, typography, spacing, border radius, shadows, layout.
-- `src/constants/index.ts` Barrel exports for theme values.
-
-## src/navigation
-
-- `src/navigation/RootNavigator.tsx` Root stack; handles Splash, auth gating, and all screens.
-- `src/navigation/AuthNavigator.tsx` Auth stack (Login, Register, OTPLogin, ForgotPassword).
-- `src/navigation/BottomTabNavigator.tsx` Main tab layout; uses `AppStackNavigator` for shared header.
-- `src/navigation/AppNavigator.tsx` Empty placeholder file.
-- `src/navigation/types.ts` Type definitions for navigation params (partially used; some screens use `any`).
-
-## src/services
-
-### src/services/firebase
-
-- `src/services/firebase/firebase.ts`
-  Firebase initialization. Exports `auth`, `db`, `storage`, and `hasFirebaseConfig`.
-- `src/services/firebase/authService.ts`
-  Firebase Auth + backend integration. Implements:
-  - Email registration (`registerWithEmail`)
-  - Email login (`loginWithEmail`)
-  - OTP send/verify
-  - Forgot password
-  - Token storage and logout
-  - Google/Apple login placeholders
-
-### src/services/api
-
-- `src/services/api/client.ts`
-  Axios client with auth token injection and refresh-token retry logic.
-- `src/services/api/index.ts`
-  Barrel exports for API services and types.
-- `src/services/api/recipe.service.ts`
-  Recipe CRUD, search, similar recipes (AI), local adaptation (AI), scaling (AI), generate recipe (AI), image upload.
-- `src/services/api/memory.service.ts`
-  Create/read/delete memory entries.
-- `src/services/api/seasonal.service.ts`
-  Fetch seasonal foods.
-- `src/services/api/ingredient.service.ts`
-  Ingredient guides and local adaptation submission.
-- `src/services/api/cookbook.service.ts`
-  Saved recipes (cookbook) management.
-- `src/services/api/cookbooks.service.ts`
-  Cookbook CRUD (list/get/create).
-- `src/services/api/cookbookDashboard.service.ts`
-  Dashboard data for saved/published/draft recipes and cookbooks.
-- `src/services/api/feedback.service.ts`
-  Submit/update/delete feedback, fetch feedback summaries.
-- `src/services/api/user.service.ts`
-  Fetch current user profile (`/auth/me`).
-- `src/services/api/endpoints.ts` Empty placeholder file.
-- `src/services/api/doa.service.ts` Empty placeholder file.
-
-### src/services/storage
-
-- `src/services/storage/asyncStorage.ts` Empty placeholder file.
-
-## src/types
-
-- `src/types/global.d.ts` Empty placeholder file.
-- `src/types/navigation.d.ts` Empty placeholder file.
-
-## src/common
-
-### Components
-
-- `src/common/components/index.ts` Barrel exports for Button/Card/Input.
-- `src/common/components/Button/button.tsx` Button component with variants, sizes, icons, loading state.
-- `src/common/components/Button/index.ts` Barrel export for Button.
-- `src/common/components/Button/Button.styles.ts` Empty placeholder file.
-- `src/common/components/Card/Card.tsx` Card component with variants and padding.
-- `src/common/components/Card/index.ts` Barrel export for Card.
-- `src/common/components/Card/Card.styles.ts` Empty placeholder file.
-- `src/common/components/Input/Input.tsx` Input with label, error, left/right icons.
-- `src/common/components/Input/index.ts` Barrel export for Input.
-- `src/common/components/Input/Input.styles.ts` Empty placeholder file.
-- `src/common/components/Input/setup-assets.js` Script to generate placeholder assets in its local folder.
-- `src/common/components/Icon/Icon.tsx` Empty placeholder file.
-- `src/common/components/Icon/index.ts` Empty placeholder file.
-- `src/common/components/Header/Header.tsx` Common header with app branding, notifications, and profile icon.
-
-### Utils
-
-- `src/common/utils/index.ts` Barrel export for responsive helpers.
-- `src/common/utils/responsive.ts` Responsive scaling utilities and breakpoints.
-- `src/common/utils/colors.ts` Empty placeholder file.
-- `src/common/utils/spacing.ts` Empty placeholder file.
-- `src/common/utils/typography.ts` Empty placeholder file.
-- `src/common/utils/dimensions.ts` Empty placeholder file.
-
-### Hooks
-
-- `src/common/hooks/index.ts` Empty placeholder file.
-- `src/common/hooks/useResponsive.ts` Empty placeholder file.
-- `src/common/hooks/useDebounce.ts` Empty placeholder file.
-
-## src/features
-
-### Auth
-
-- `src/features/auth/screens/SplashScreen.tsx` Animated splash screen used before auth check.
-- `src/features/auth/screens/LoginScreen.tsx` Email/password login with remember-me, Google/Apple placeholders.
-- `src/features/auth/screens/RegisterScreen.tsx` Registration form using Firebase email/password.
-- `src/features/auth/screens/OTPLoginScreen.tsx` Phone OTP login flow via backend.
-- `src/features/auth/screens/ForgotPasswordScreen.tsx` Password reset via backend.
-
-### Home
-
-- `src/features/home/screens/HomeScreen.tsx` Main home feed; pulls profile, seasonal foods, and recipes.
-- `src/features/home/screens/index.ts` Empty placeholder file.
-- `src/features/home/types/home.types.ts` Home UI data types.
-- `src/features/home/hooks/useSeasonalData.ts` Empty placeholder file.
-- `src/features/home/hooks/useRecommendations.ts` Empty placeholder file.
-- `src/features/home/components/Header/Header.tsx` Home-specific header with greeting and location.
-- `src/features/home/components/Header/index.ts` Barrel export for header.
-- `src/features/home/components/Header/Header.styles.ts` Empty placeholder file.
-- `src/features/home/components/MemoryCore/MemoryCore.tsx` "Recreate memory" input card on Home.
-- `src/features/home/components/MemoryCore/index.ts` Empty placeholder file.
-- `src/features/home/components/MemoryCore/MemoryCore.styles.ts` Empty placeholder file.
-- `src/features/home/components/SeasonalScroll/SeasonalScroll.tsx` Horizontal seasonal items list.
-- `src/features/home/components/SeasonalScroll/SeasonalItem.tsx` Empty placeholder file.
-- `src/features/home/components/SeasonalScroll/SeasonalScroll.styles.ts` Empty placeholder file.
-- `src/features/home/components/SeasonalScroll/index.ts` Empty placeholder file.
-- `src/features/home/components/FeatureGrid/FeatureGrid.tsx` Quick access tiles (Local Adaptation, Smart Scaling, etc.).
-- `src/features/home/components/FeatureGrid/FeatureCard.tsx` Empty placeholder file.
-- `src/features/home/components/FeatureGrid/index.ts` Empty placeholder file.
-- `src/features/home/components/FeatureGrid/FeatureGrid.styles.ts` Empty placeholder file.
-- `src/features/home/components/RecommendationFeed/RecommendationFeed.tsx` Suggested recipe cards.
-- `src/features/home/components/RecommendationFeed/RecommendationCard.tsx` Empty placeholder file.
-- `src/features/home/components/RecommendationFeed/index.ts` Barrel export for recommendation feed.
-- `src/features/home/components/RecommendationFeed/RecommendationFeed.styles.ts` Empty placeholder file.
-
-### Memory
-
-- `src/features/memory/screens/MemoryScreen.tsx` Memory input and recent memory list; calls `/memories`.
-- `src/features/memory/screens/SimilarDishesScreen.tsx` Shows AI-suggested dishes; polls memory status.
-- `src/features/memory/screens/RecipeCustomizationScreen.tsx` Ingredient selection, scaling, local adaptation.
-- `src/features/memory/screens/CookingStepsScreen.tsx` Step-by-step cooking flow.
-- `src/features/memory/screens/CookingTimerScreen.tsx` Timer view.
-- `src/features/memory/screens/DoneScreen.tsx` Completion screen; allows timer start.
-- `src/features/memory/screens/FeedbackScreen.tsx` Collects rating/comments and sends feedback.
-
-### Adaptation
-
-- `src/features/adaptation/screens/LocalAdaptationScreen.tsx` Search for local swaps and seasonal foods.
-- `src/features/adaptation/screens/SeasonalFoodScreen.tsx` Seasonal ingredient detail plus recipe suggestions.
-- `src/features/adaptation/screens/AddRecipeScreen.tsx` Create recipe and upload image.
-- `src/features/adaptation/screens/IngredientGuideScreen.tsx` Ingredient guide from `/ingredients/guides`.
-- `src/features/adaptation/screens/AddAdaptationScreen.tsx` Submit local ingredient adaptations.
-
-### Scaling
-
-- `src/features/scaling/screens/SmartScalingScreen.tsx` Ingredient-based scaling entry.
-- `src/features/scaling/screens/ScaledRecipeResultsScreen.tsx` Scaled recipe results using `/recipes/scale-query`.
-
-### Search
-
-- `src/features/search/screens/SearchRecipeScreen.tsx` Recipe search, recent history, and local adaptation hints.
-
-### Profile
-
-- `src/features/profile/screens/ProfileSettingsScreen.tsx` User profile settings and logout.
-- `src/features/profile/screens/ChangeEmailScreen.tsx` Placeholder for email change.
-- `src/features/profile/screens/ChangePasswordScreen.tsx` Placeholder for password change.
-
-### Community
-
-- `src/features/community/screens/DigitalCommitteeScreen.tsx` Community hub with mock data.
-- `src/features/community/screens/RecipeDescriptionScreen.tsx` Community recipe detail.
-- `src/features/community/screens/CookbookReferenceScreen.tsx` Cookbook details.
-- `src/features/community/screens/CookbookIntroductionScreen.tsx` Cookbook intro flow.
-- `src/features/community/screens/CookbookRecipePageScreen.tsx` Cookbook recipe pages (mock recipes).
-- `src/features/community/screens/CookbookThankYouScreen.tsx` Cookbook completion and rating.
-- `src/features/community/screens/index.ts` Barrel exports for community screens.
-- `src/features/community/types/community.types.ts` Community data types.
-- `src/features/community/index.ts` Contains unresolved merge conflict markers; needs cleanup.
-
-### Cookbook
-
-- `src/features/cookbook/screens/DigitalCookbookScreen.tsx` Cookbook dashboard from `/my-cookbook`.
-- `src/features/cookbook/screens/PublishedRecipePageScreen.tsx` Published recipe details plus mock feedback.
-- `src/features/cookbook/screens/DraftRecipePageScreen.tsx` Draft recipe actions.
-- `src/features/cookbook/screens/SelectRecipesPageScreen.tsx` Select recipes for a cookbook.
-- `src/features/cookbook/screens/CookbookCoverSetupScreen.tsx` Cookbook cover and author info.
-- `src/features/cookbook/screens/CookbookCreationSummaryScreen.tsx` Preview and publish (mocked).
-
-## Known Gaps / Issues
-
-- `src/features/community/index.ts` contains merge conflict markers (`=======`).
-- `src/features/adaptation/screens/SeasonalFoodScreen.tsx` uses `getDifficultyColor` without defining it.
-- `src/navigation/AppNavigator.tsx`, `src/services/api/endpoints.ts`, `src/services/api/doa.service.ts`, `src/services/storage/asyncStorage.ts`, and several `*.styles.ts` files are empty placeholders.
-- Some navigation targets referenced but not defined, for example `RecipeLibrary` in Local Adaptation and Smart Scaling screens.
-- Backend URLs are hard-coded in multiple files instead of using `EXPO_PUBLIC_API_URL` consistently.
-
-## Backend Expectations (Not in Repo)
-
-The frontend expects a backend that:
-
-- Validates Firebase ID tokens at `/auth/login` and returns user data.
-- Exposes recipe, memory, cookbook, ingredient guide, feedback, and seasonal endpoints described above.
-- Provides AI-generated results for similar dishes, local adaptations, scaling, and recipe generation.
+Root navigator behavior (`src/navigation/RootNavigator.tsx`):
+
+- Shows `SplashScreen` until it calls `onFinish`.
+- Checks auth using `isAuthenticated()` (AsyncStorage `authToken` existence).
+- Subscribes to auth changes using `subscribeToAuthChanges` from `src/services/firebase/authService.ts`.
+- If authenticated: shows `MainTabs` plus a set of stack screens.
+- If not: shows `AuthNavigator`.
+
+Tabs + app stack (`src/navigation/BottomTabNavigator.tsx`):
+
+- Bottom tabs: `HomeTab`, `MemoryTab`, `CreateTab`, `SearchTab`, `LibraryTab`.
+- Each tab renders the same `AppStackNavigator` with a different `initialRouteName`.
+- `AppStackNavigator` uses a custom `Header` for most stack screens, but hides the header on `Home`.
+- Many screens are registered both in `RootNavigator` and inside `AppStackNavigator` (duplication). In practice, most navigation originates from the tab stack.
+
+Auth stack (`src/navigation/AuthNavigator.tsx`):
+
+- `Login`, `Register`, `ForgotPassword`.
+- Note: `src/features/auth/screens/OTPLoginScreen.tsx` exists but is not currently wired into `AuthNavigator`.
+
+## Frontend Integrations
+
+### HTTP API Client
+
+Files:
+
+- `src/services/api/client.ts`: axios instance used by `src/services/api/*.service.ts`.
+
+Behavior:
+
+- Adds `Authorization: Bearer <token>` from AsyncStorage key `authToken`.
+- On 401 (or backend message containing “invalid token format”): tries to refresh token using Firebase Secure Token API (`securetoken.googleapis.com`) with AsyncStorage key `refreshToken`, then retries once.
+- Logs `[req] ...` and `[res] ...` in development mode.
+
+### Firebase
+
+Init:
+
+- `src/services/firebase/firebase.ts` initializes Firebase only when all `EXPO_PUBLIC_FIREBASE_*` values exist.
+- If config is missing, Firebase-dependent features degrade (stores throw if called without config).
+
+Auth + backend handoff:
+
+- `src/services/firebase/authService.ts` performs Firebase login (email/password, Google, Apple).
+- After Firebase login, it calls backend `POST /auth/login` with `{ idToken }`.
+- It stores:
+  - `authToken` = Firebase ID token (used for API bearer auth)
+  - `refreshToken` = Firebase refresh token (used for API client refresh path)
+  - `userData` = mapped user profile JSON
+  - `rememberMe` + `userEmail` when enabled
+
+Firestore stores used by the app:
+
+- `src/services/firebase/recipeStore.ts`: create recipes; list user/approved recipes; save recipes to library; increment views.
+- `src/services/firebase/cookbookStore.ts`: create cookbooks; list user cookbooks; save cookbooks to library.
+- `src/services/firebase/feedbackStore.ts`: submit feedback and update recipe rating/count transactionally.
+
+Firestore collection shapes (as used by the stores):
+
+- `recipes/{recipeId}`
+- `recipes/{recipeId}/feedback/{userId}`
+- `users/{userId}/savedRecipes/{savedId}`
+- `users/{userId}/savedCookbooks/{savedId}`
+- `users/{userId}/feedback/{recipeId}`
+- `cookbooks/{cookbookId}`
+
+### Local Storage (AsyncStorage)
+
+Keys used by the app:
+
+- `authToken`, `refreshToken`, `userData`, `rememberMe`, `userEmail` (auth)
+- `search_history` (search screen history)
+
+## Backend API Contracts (As Used By Frontend)
+
+These endpoints are called by the frontend services (backend implementation is not in this repo).
+
+- Auth
+  - `POST /auth/login` (Firebase ID token -> backend user/session mapping)
+  - `POST /auth/send-otp`
+  - `POST /auth/verify-otp`
+  - `POST /auth/forgot-password`
+  - `GET /auth/me` (profile)
+- Recipes
+  - `GET /recipes`
+  - `GET /recipes/:id`
+  - `POST /recipes` (create)
+  - `PUT /recipes/:id` (update)
+  - `DELETE /recipes/:id` (delete)
+  - `POST /recipes/:id/scale` (scale servings)
+  - `GET /recipes/search?q=...` (search; may return `intent` and `adaptations`)
+  - `GET /recipes/similar` (AI-assisted; supports `q` or `ingredient`)
+  - `GET /recipes/local-adapt` (AI-assisted; supports `dishName` and `ingredients`)
+  - `POST /recipes/scale-query` (AI-assisted; parses ingredient quantity text and returns `scale` + recipe suggestions)
+  - `GET /recipes/generate?dish=...` (AI-assisted recipe generation)
+  - `POST /recipes/upload-image` (multipart form upload; used by Add Recipe/Adaptation)
+- Memories
+  - `(Optional) POST /memories` (persist a memory; backend may do AI processing asynchronously)
+  - `GET /memories` (list)
+  - `GET /memories/:id` (poll for status/similar dishes)
+  - `DELETE /memories/:id`
+- Ingredients
+  - `GET /ingredients/guides` (lookup by `name`/`slug`/`q`)
+  - `POST /ingredients/adaptations` (submit new adaptation + optional guide)
+- Seasonal
+  - `GET /seasonal`
+- Feedback
+  - `POST /feedback/recipes/:recipeId`
+  - `GET /feedback/recipes/:recipeId`
+  - `PUT /feedback/:feedbackId`
+  - `DELETE /feedback/:feedbackId`
+- Cookbook (API-backed cookbook, separate from Firestore “digital cookbook” storage)
+  - `GET /cookbook`, `POST /cookbook/:recipeId`, `DELETE /cookbook/:recipeId`, `PUT /cookbook/organize`
+  - `GET /cookbooks`, `GET /cookbooks/:id`, `POST /cookbooks`
+  - `GET /my-cookbook` (dashboard aggregate)
+
+## “AI” In This App (What The Frontend Actually Does)
+
+The app does not run ML models locally. It calls backend endpoints that are expected to be AI-powered.
+
+- Similar dishes: `GET /recipes/similar` via `recipeService.getSimilarRecipes` using the AI service base URL when configured.
+- Local substitutes:
+  - Search/local adaptation screens receive `adaptations` from `GET /recipes/search`.
+  - Recipe customization can fetch substitute suggestions using `GET /recipes/local-adapt`.
+- Smart scaling: `POST /recipes/scale-query` via `recipeService.scaleByIngredientQuery` through the main backend, which can call a local Ollama model.
+- Recipe generation fallback: `GET /recipes/generate` via `recipeService.generateRecipeByDish` using the AI service base URL when configured.
+- Memory processing:
+  - Entry points fetch candidates via `GET /recipes/similar` and pass them to `SimilarDishesScreen`.
+  - `SimilarDishesScreen` still supports polling `GET /memories/:id` if a `memoryId` is provided by a backend that persists memories.
+
+Special case in `src/features/memory/screens/RecipeCustomizationScreen.tsx`:
+
+- If `dishId` looks AI-generated (starts with `ai:` or contains spaces/`%20`), the screen assumes it is not a real DB id and calls `GET /recipes/generate` to create a recipe on the fly.
+
+## Screen Catalog (What Each Screen Does)
+
+This is the full set of `*Screen.tsx` screens in `src/features`.
+
+Auth:
+
+- `src/features/auth/screens/SplashScreen.tsx`: startup splash; calls `onFinish` to allow navigation.
+- `src/features/auth/screens/LoginScreen.tsx`: email/password + social login via `authService.ts`.
+- `src/features/auth/screens/RegisterScreen.tsx`: creates Firebase user, sends verification, then completes backend login.
+- `src/features/auth/screens/ForgotPasswordScreen.tsx`: calls backend `POST /auth/forgot-password`.
+- `src/features/auth/screens/OTPLoginScreen.tsx`: exists but is not registered in `AuthNavigator`.
+
+Home:
+
+- `src/features/home/screens/HomeScreen.tsx`: loads profile (`GET /auth/me`), seasonal (`GET /seasonal`), recipes (`GET /recipes`); memory search uses `GET /recipes/similar` via `MemoryCore`.
+
+Memory-based cooking flow:
+
+- `src/features/memory/screens/MemoryScreen.tsx`: memory search uses `GET /recipes/similar`, lists history (`GET /memories`), opens recipe customization from history.
+- `src/features/memory/screens/SimilarDishesScreen.tsx`: show dish suggestions; polls memory (`GET /memories/:id`) and falls back to `GET /recipes/similar`.
+- `src/features/memory/screens/RecipeCustomizationScreen.tsx`: load recipe (`GET /recipes/:id`) or generate (`GET /recipes/generate`), scale (`POST /recipes/:id/scale`), local adapt (`GET /recipes/local-adapt`), start cooking.
+- `src/features/memory/screens/CookingStepsScreen.tsx`: checklist steps; uses passed instructions or mock.
+- `src/features/memory/screens/DoneScreen.tsx`: completion; can start timer or reset to `MainTabs`.
+- `src/features/memory/screens/CookingTimerScreen.tsx`: countdown timer; on finish routes to feedback.
+- `src/features/memory/screens/FeedbackScreen.tsx`: submits feedback to Firestore first (if available) else to API; resets to `MainTabs`.
+
+Adaptation:
+
+- `src/features/adaptation/screens/LocalAdaptationScreen.tsx`: seasonal list (`GET /seasonal`) + search (`GET /recipes/search`); shows `adaptations` and suggested recipes; opens `IngredientGuide` or `RecipeCustomization`.
+- `src/features/adaptation/screens/SeasonalFoodScreen.tsx`: suggests recipes via `GET /recipes/similar` then fallback `GET /recipes/generate`; opens `RecipeCustomization` with `autoAdapt: true`.
+- `src/features/adaptation/screens/IngredientGuideScreen.tsx`: loads guide (`GET /ingredients/guides`); can open `RecipeCustomization` from the guide.
+- `src/features/adaptation/screens/AddAdaptationScreen.tsx`: uploads image (`POST /recipes/upload-image`) and submits adaptation (`POST /ingredients/adaptations`).
+- `src/features/adaptation/screens/AddRecipeScreen.tsx`: uploads image (`POST /recipes/upload-image`) and creates a Firestore recipe (`recipeStore.createRecipe`) with draft/pending status.
+
+Scaling:
+
+- `src/features/scaling/screens/SmartScalingScreen.tsx`: collects scaling query and navigates to results; links to `AddRecipe`.
+- `src/features/scaling/screens/ScaledRecipeResultsScreen.tsx`: calls `POST /recipes/scale-query` and shows suggested recipes; selecting opens `RecipeCustomization`.
+- `src/features/scaling/screens/SmartScalingSearchResultsScreen.tsx`: registered; see file for behavior.
+
+Search:
+
+- `src/features/search/screens/SearchRecipeScreen.tsx`: calls `GET /recipes/search`; if intent is ingredient and recipes are empty, falls back to `GET /recipes/similar`; stores search history to AsyncStorage `search_history`.
+
+Profile:
+
+- `src/features/profile/screens/ProfileSettingsScreen.tsx`: profile + logout (`authService.logout()`).
+- `src/features/profile/screens/ChangeEmailScreen.tsx`: placeholder.
+- `src/features/profile/screens/ChangePasswordScreen.tsx`: placeholder.
+
+Cookbook (Firestore-backed “Digital Cookbook”):
+
+- `src/features/cookbook/screens/DigitalCookbookScreen.tsx`: reads Firestore recipes/cookbooks and saved items; depends on Firebase.
+- `src/features/cookbook/screens/PublishedRecipePageScreen.tsx`: recipe detail UI (depends on navigation payload).
+- `src/features/cookbook/screens/DraftRecipePageScreen.tsx`: draft recipe UI.
+- `src/features/cookbook/screens/SelectRecipesPageScreen.tsx`: select recipes for a cookbook.
+- `src/features/cookbook/screens/CookbookCoverSetupScreen.tsx`: cover + author fields.
+- `src/features/cookbook/screens/CookbookCreationSummaryScreen.tsx`: summary/publish UI.
+
+Community:
+
+- `src/features/community/screens/DigitalCommitteeScreen.tsx`: community hub (mostly mock/static).
+- `src/features/community/screens/RecipeDescriptionScreen.tsx`: recipe detail view for community items.
+- `src/features/community/screens/CookbookReferenceScreen.tsx`: cookbook reference/detail.
+- `src/features/community/screens/CookbookIntroductionScreen.tsx`: cookbook intro.
+- `src/features/community/screens/CookbookRecipePageScreen.tsx`: cookbook recipe pages.
+- `src/features/community/screens/CookbookThankYouScreen.tsx`: completion + rating UI.
+
+## End-to-End Flows (Screen-by-Screen)
+
+### 1) App Startup
+
+- `App.tsx` mounts `RootNavigator`.
+- `SplashScreen` shows first; when finished, `RootNavigator` checks AsyncStorage `authToken`.
+- If authenticated: go to `MainTabs`.
+- If not: go to `AuthNavigator` (`Login`).
+
+### 2) Memory-Based Cooking Flow
+
+Start (two entry points):
+
+- Home: `HomeScreen` memory card -> `GET /recipes/similar` -> `SimilarDishesScreen`
+- Recall tab: `MemoryScreen` -> `GET /recipes/similar` -> `SimilarDishesScreen`
+
+Then:
+
+- `SimilarDishesScreen`
+  - If `memoryId` exists: polls `GET /memories/:id` while `status === 'processing'`
+  - Else: calls `GET /recipes/similar?q=<memoryQuery>`
+  - Selecting a dish navigates to `RecipeCustomization`
+- `RecipeCustomizationScreen`
+  - Loads recipe by `dishId` (`GET /recipes/:id`) or generates (`GET /recipes/generate`) when id looks AI-generated
+  - Optional auto-adapt: calls `GET /recipes/local-adapt` for all ingredients and pre-fills local alternatives
+  - Scaling: calls `POST /recipes/:id/scale` when a `dishId` is provided
+  - “Local alternative” per ingredient may call `GET /recipes/local-adapt` for that ingredient
+  - Done -> `CookingSteps`
+- `CookingStepsScreen` -> `DoneScreen` -> `CookingTimerScreen` -> `FeedbackScreen`
+- `FeedbackScreen` submits feedback (Firestore preferred; API fallback) then resets to `MainTabs`
+
+### 3) Local Adaptation Flow
+
+- `LocalAdaptationScreen` loads seasonal list (`GET /seasonal`) and accepts a search term.
+- On search:
+  - Calls `GET /recipes/search?q=...`
+  - If intent is `dish` and recipes exist: opens `RecipeCustomization` directly for the first recipe
+  - If intent is `ingredient`: displays backend `adaptations` and suggested recipes (fallback: `GET /recipes/similar?ingredient=...`)
+- Tapping an adaptation opens `IngredientGuideScreen` (`GET /ingredients/guides`)
+- Seasonal item opens `SeasonalFoodScreen`
+
+### 4) Seasonal Ingredient Flow
+
+- `SeasonalFoodScreen` calls `GET /recipes/similar?ingredient=<foodName>` and falls back to `GET /recipes/generate?dish=<foodName>`.
+- Selecting a suggestion opens `RecipeCustomization` with `autoAdapt: true` (which triggers automatic `GET /recipes/local-adapt` on ingredient list).
+
+### 5) Smart Scaling Flow
+
+- `SmartScalingScreen` -> `ScaledRecipeResultsScreen` with `scalingQuery`.
+- `ScaledRecipeResultsScreen` calls `POST /recipes/scale-query` with `{ query, includeRecipes: true }`.
+- Selecting a result opens `RecipeCustomization`.
+
+### 6) Search Flow
+
+- `SearchRecipeScreen` calls `GET /recipes/search?q=...`.
+- If backend says intent `ingredient` and recipes are empty: fallback `GET /recipes/similar?ingredient=...`.
+- Stores the query into AsyncStorage key `search_history`.
+
+### 7) Digital Cookbook Flow (Firestore)
+
+- `DigitalCookbookScreen` reads:
+  - Firestore recipes filtered by `ownerId` and by `publishStatus` (approved/pending/draft)
+  - Saved recipes from `users/{uid}/savedRecipes`
+  - Cookbooks from `cookbooks` and `users/{uid}/savedCookbooks`
+- Add Recipe: `AddRecipeScreen` creates a Firestore recipe with `publishStatus` draft or pending.
+
+## Dev/Support Scripts
+
+These scripts are used for Firestore seeding/admin tasks (run from repo root):
+
+- `scripts/firebase/add-pending-recipe.js`: writes a sample recipe with `publishStatus: 'pending'` to Firestore.
+- `scripts/firebase/set-admin-claim.js`: sets Firebase Auth custom claim `{ admin: true|false }` for a user.
+
+Both require a Firebase service account JSON and use `firebase-admin`:
+
+- Provide `--key <path>` or set `GOOGLE_APPLICATION_CREDENTIALS`.
+
+## Known Gaps / Issues In Current Workspace
+
+- Navigation targets referenced but not registered: `RecipeLibrary` is navigated to from `SmartScalingScreen` and `LocalAdaptationScreen`.
+- `src/services/api/endpoints.ts`, `src/services/api/doa.service.ts`, `src/services/storage/asyncStorage.ts` are empty placeholders.
+- `HomeScreen.tsx` “recommended recipe press” currently shows an alert instead of navigating to a recipe detail screen.
+- `BottomTabNavigator.tsx` `CreateTab` currently renders a placeholder “Create Recipe Screen”.
 
 ---
 

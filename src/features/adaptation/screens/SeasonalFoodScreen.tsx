@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, ChevronRight, Circle } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
+import { buildRemoteImageSource } from '../../../common/utils';
 import recipeService, { Recipe } from '../../../services/api/recipe.service';
 
 interface SeasonalFoodScreenProps {
@@ -34,9 +35,22 @@ const SeasonalFoodScreen: React.FC<SeasonalFoodScreenProps> = ({ navigation, rou
   const [suggestedRecipes, setSuggestedRecipes] = useState<SuggestedRecipe[]>([]);
   const [loadingRecipes, setLoadingRecipes] = useState(true);
 
+  const getDifficultyColor = (difficulty: string) => {
+    switch (String(difficulty).toLowerCase()) {
+      case 'easy':
+        return COLORS.pastelGreen.main;
+      case 'medium':
+        return COLORS.pastelYellow.main;
+      case 'hard':
+        return COLORS.status.error;
+      default:
+        return COLORS.text.secondary;
+    }
+  };
+
   const mapSuggestedRecipe = (recipe: Recipe): SuggestedRecipe => ({
-    id: recipe.id || recipe.title || recipe.dish || `${Date.now()}`,
-    title: recipe.title || recipe.dish || 'Recipe',
+    id: recipe.id || recipe.title || `recipe-${Date.now()}`,
+    title: recipe.title || 'Recipe',
     image: recipe.imageUrl || recipe.image,
     prepTime: recipe.prepTime || recipe.cookTime || 0,
     difficulty: recipe.difficulty || 'medium',
@@ -125,11 +139,7 @@ const SeasonalFoodScreen: React.FC<SeasonalFoodScreenProps> = ({ navigation, rou
         {/* Large Food Image */}
         <View style={styles.imageContainer}>
           <Image
-            source={
-              food?.image
-                ? { uri: food.image }
-                : require('../../../assets/icon.png')
-            }
+            source={buildRemoteImageSource(food?.image) || require('../../../assets/icon.png')}
             style={styles.foodImage}
             resizeMode="cover"
           />
@@ -172,11 +182,7 @@ const SeasonalFoodScreen: React.FC<SeasonalFoodScreenProps> = ({ navigation, rou
                 activeOpacity={0.9}
               >
                 <Image
-                  source={
-                    recipe.image
-                      ? { uri: recipe.image }
-                      : require('../../../assets/icon.png')
-                  }
+                  source={buildRemoteImageSource(recipe.image) || require('../../../assets/icon.png')}
                   style={styles.recipeImage}
                   resizeMode="cover"
                 />
@@ -344,6 +350,9 @@ const styles = StyleSheet.create({
   recipeDifficultyText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.sm),
     color: COLORS.text.secondary,
+  },
+  arrowIcon: {
+    marginLeft: moderateScale(SPACING.sm),
   },
   bottomSpacer: {
     height: moderateScale(SPACING['4xl']),

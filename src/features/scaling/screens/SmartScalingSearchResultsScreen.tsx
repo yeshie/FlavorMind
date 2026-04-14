@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, BookOpen, Search, Sparkles } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
+import { buildRemoteImageSource } from '../../../common/utils';
 import recipeService, { Recipe } from '../../../services/api/recipe.service';
 
 interface SmartScalingSearchResultsScreenProps {
@@ -235,11 +236,7 @@ const SmartScalingSearchResultsScreen: React.FC<SmartScalingSearchResultsScreenP
                 activeOpacity={0.9}
               >
                 <Image
-                  source={
-                    recipe.image
-                      ? { uri: recipe.image }
-                      : require('../../../assets/icon.png')
-                  }
+                  source={buildRemoteImageSource(recipe.image) || require('../../../assets/icons/book.png')}
                   style={styles.recipeImage}
                   resizeMode="cover"
                 />
@@ -283,11 +280,7 @@ const SmartScalingSearchResultsScreen: React.FC<SmartScalingSearchResultsScreenP
                 activeOpacity={0.9}
               >
                 <Image
-                  source={
-                    recipe.image
-                      ? { uri: recipe.image }
-                      : require('../../../assets/icon.png')
-                  }
+                  source={buildRemoteImageSource(recipe.image) || require('../../../assets/icons/book.png')}
                   style={styles.recipeImage}
                   resizeMode="cover"
                 />

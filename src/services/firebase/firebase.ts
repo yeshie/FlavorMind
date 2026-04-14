@@ -1,9 +1,15 @@
 // src/services/firebase/firebase.ts - Firebase initialization for Expo/React Native
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initializeApp, getApp, getApps, FirebaseApp } from 'firebase/app';
-import { initializeAuth, getReactNativePersistence, getAuth, Auth } from '@firebase/auth';
+import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
+
+const firebaseAuthModule = require('@firebase/auth') as {
+  initializeAuth: (app: FirebaseApp, options?: { persistence?: unknown }) => Auth;
+  getReactNativePersistence: (storage: typeof AsyncStorage) => unknown;
+};
+const { initializeAuth, getReactNativePersistence } = firebaseAuthModule;
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || '',

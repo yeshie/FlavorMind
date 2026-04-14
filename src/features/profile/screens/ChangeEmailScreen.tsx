@@ -15,6 +15,7 @@ import { COLORS, TYPOGRAPHY, SPACING } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Input from '../../../common/components/Input/Input';
 import Button from '../../../common/components/Button/button';
+import { changeCurrentUserEmail } from '../../../services/firebase/authService';
 
 interface ChangeEmailScreenProps {
   navigation: any;
@@ -44,12 +45,15 @@ const ChangeEmailScreen: React.FC<ChangeEmailScreenProps> = ({ navigation }) => 
     setLoading(true);
 
     try {
-      // TODO: Implement email change with backend
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      const response = await changeCurrentUserEmail(currentPassword, newEmail.trim());
+      if (!response.success) {
+        Alert.alert('Error', response.message || 'Failed to change email');
+        return;
+      }
+
       Alert.alert(
         'Success',
-        'Email changed successfully! Please verify your new email.',
+        response.message || 'Email changed successfully! Please verify your new email.',
         [
           {
             text: 'OK',

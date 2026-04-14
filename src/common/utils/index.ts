@@ -12,3 +12,4 @@ export {
 } from './responsive';
 
 export { normalizeDishName } from './normalizeDishName';
+export { buildRemoteImageSource } from './imageSource';

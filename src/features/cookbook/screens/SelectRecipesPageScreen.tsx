@@ -216,7 +216,7 @@ const SelectRecipesPageScreen: React.FC<SelectRecipesPageScreenProps> = ({ navig
                     source={
                       recipe.image
                         ? { uri: recipe.image }
-                        : require('../../../assets/icon.png')
+                        : require('../../../assets/icons/book.png')
                     }
                     style={styles.recipeImage}
                     resizeMode="cover"

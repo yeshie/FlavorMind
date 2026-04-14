@@ -1,5 +1,5 @@
 // src/features/memory/screens/CookingStepsScreen.tsx
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -12,17 +12,29 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
+import CornerTimer from '../components/CornerTimer';
+import { calculateElapsedMinutes, createCookingHistoryId } from '../../../common/utils/cookingHistory';
+import { getFirebaseUser } from '../../../services/firebase/authService';
+import { hasFirebaseConfig } from '../../../services/firebase/firebase';
+import cookingHistoryStore, { isPermissionDeniedError } from '../../../services/firebase/cookingHistoryStore';
+import { recordRecipeActivity, saveCookingHistoryEntry } from '../../../services/storage/asyncStorage';
 
 interface CookingStepsScreenProps {
   navigation: any;
   route: {
     params: {
       dishName: string;
+      dishImage?: string;
       servingSize: number;
       ingredients: any[];
       instructions?: string[];
+      actualPrepTime?: number;
+      prepTime?: number;
+      cookTime?: number;
       totalCookTime?: number;
       recipeId?: string;
+      feedbackRecipeId?: string;
+      feedbackTarget?: 'recipes' | 'publicRecipes';
     };
   };
 }
@@ -38,11 +50,17 @@ interface CookingStep {
 const CookingStepsScreen: React.FC<CookingStepsScreenProps> = ({ navigation, route }) => {
   const {
     dishName,
+    dishImage,
     servingSize,
     ingredients,
     instructions = [],
+    actualPrepTime,
+    prepTime,
+    cookTime,
     totalCookTime,
     recipeId,
+    feedbackRecipeId,
+    feedbackTarget,
   } = route.params;
 
   const mockSteps: CookingStep[] = [
@@ -108,9 +126,26 @@ const CookingStepsScreen: React.FC<CookingStepsScreenProps> = ({ navigation, rou
       : mockSteps;
 
   const [steps, setSteps] = useState<CookingStep[]>(initialSteps);
+  const [finishing, setFinishing] = useState(false);
+  const cookStartedAtRef = useRef<number>(Date.now());
 
   const fallbackTime = steps.reduce((acc, step) => acc + (step.duration || 0), 0) || 30;
-  const totalTime = totalCookTime && totalCookTime > 0 ? totalCookTime : fallbackTime;
+  const suggestedTotalTime = totalCookTime && totalCookTime > 0 ? totalCookTime : fallbackTime;
+  const suggestedPrepStageMinutes =
+    typeof prepTime === 'number' && Number.isFinite(prepTime) && prepTime > 0
+      ? Math.round(prepTime)
+      : Math.max(
+          0,
+          suggestedTotalTime - (Number(cookTime) > 0 ? Math.round(Number(cookTime)) : suggestedTotalTime)
+        );
+  const suggestedCookingTimerMinutes =
+    typeof cookTime === 'number' && Number.isFinite(cookTime) && cookTime > 0
+      ? Math.round(cookTime)
+      : suggestedTotalTime;
+  const actualPrepStageMinutes =
+    typeof actualPrepTime === 'number' && Number.isFinite(actualPrepTime) && actualPrepTime > 0
+      ? Math.round(actualPrepTime)
+      : suggestedPrepStageMinutes;
   const completedSteps = steps.filter(s => s.completed).length;
   const progress = (completedSteps / steps.length) * 100;
 
@@ -120,33 +155,105 @@ const CookingStepsScreen: React.FC<CookingStepsScreenProps> = ({ navigation, rou
     ));
   };
 
-  const handleStartTimer = () => {
+  const navigateToDone = (actualCookTime: number, actualTotalTime: number, historyId?: string) => {
+    navigation.navigate('Done', {
+      dishName,
+      dishImage,
+      servingSize,
+      prepTime: actualPrepStageMinutes,
+      cookTime: actualCookTime,
+      totalCookTime: actualTotalTime,
+      recipeId,
+      feedbackRecipeId,
+      feedbackTarget,
+      historyId,
+    });
+  };
+
+  const persistCookingCompletion = async () => {
+    const historyId = createCookingHistoryId(dishName);
+    const actualCookTime = calculateElapsedMinutes(cookStartedAtRef.current);
+    const actualTotalTime = actualPrepStageMinutes + actualCookTime;
+    const historyPayload = {
+      id: historyId,
+      dishName,
+      dishImage,
+      recipeId,
+      feedbackRecipeId,
+      feedbackTarget,
+      servingSize,
+      prepTime: actualPrepStageMinutes,
+      cookTime: actualCookTime,
+      totalCookTime: actualTotalTime,
+    };
+
+    const tasks: Promise<unknown>[] = [
+      saveCookingHistoryEntry(historyPayload),
+      recordRecipeActivity({
+        actionType: 'cook',
+        recipeId: feedbackRecipeId || recipeId,
+        recipeTitle: dishName,
+        ingredients: ingredients.map((item) => item?.name).filter(Boolean),
+      }),
+    ];
+
+    const firebaseUser = getFirebaseUser();
+    if (firebaseUser && hasFirebaseConfig) {
+      tasks.push(cookingHistoryStore.saveHistory(firebaseUser.uid, historyPayload));
+    }
+
+    const results = await Promise.allSettled(tasks);
+    results.forEach((result) => {
+      if (result.status === 'rejected') {
+        if (isPermissionDeniedError(result.reason)) {
+          return;
+        }
+        console.warn('Cooking completion persistence failed:', result.reason);
+      }
+    });
+
+    return {
+      historyId,
+      actualCookTime,
+      actualTotalTime,
+    };
+  };
+
+  const completeCooking = async () => {
+    if (finishing) return;
+
+    setFinishing(true);
+    try {
+      const { historyId, actualCookTime, actualTotalTime } = await persistCookingCompletion();
+      navigateToDone(actualCookTime, actualTotalTime, historyId);
+    } catch (error) {
+      console.warn('Cooking history save failed:', error);
+      const actualCookTime = calculateElapsedMinutes(cookStartedAtRef.current);
+      navigateToDone(actualCookTime, actualPrepStageMinutes + actualCookTime);
+    } finally {
+      setFinishing(false);
+    }
+  };
+
+  const handleFinishCooking = () => {
     const allCompleted = steps.every(s => s.completed);
     
     if (!allCompleted) {
       Alert.alert(
         'Incomplete Steps',
-        'Some steps are not marked as completed. Do you want to proceed to the timer anyway?',
+        'Some steps are not marked as completed. Do you want to finish cooking anyway?',
         [
           { text: 'Go Back', style: 'cancel' },
           {
-            text: 'Continue',
-            onPress: () => navigation.navigate('Done', {
-              dishName,
-              servingSize,
-              totalCookTime: totalTime,
-              recipeId,
-            }),
+            text: 'Finish',
+            onPress: () => {
+              void completeCooking();
+            },
           },
         ]
       );
     } else {
-      navigation.navigate('Done', {
-        dishName,
-        servingSize,
-        totalCookTime: totalTime,
-        recipeId,
-      });
+      void completeCooking();
     }
   };
 
@@ -154,12 +261,22 @@ const CookingStepsScreen: React.FC<CookingStepsScreenProps> = ({ navigation, rou
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       {/* Header */}
       <View style={styles.pageIntro}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.backButtonText}>{'<- Back'}</Text>
-        </TouchableOpacity>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.backButtonText}>{'<- Back'}</Text>
+          </TouchableOpacity>
+
+          <CornerTimer
+            title="Cook Timer"
+            durationMinutes={suggestedCookingTimerMinutes}
+            accentColor={COLORS.pastelGreen.dark}
+            onCompleteTitle="Cooking time finished"
+            onCompleteMessage={`${dishName} has reached the suggested cooking time. Complete the remaining steps when you are ready.`}
+          />
+        </View>
         <Text style={styles.headerTitle}>Cooking Steps</Text>
       </View>
 
@@ -169,7 +286,18 @@ const CookingStepsScreen: React.FC<CookingStepsScreenProps> = ({ navigation, rou
           <Text style={styles.progressText}>
             {completedSteps} of {steps.length} steps completed
           </Text>
-          <Text style={styles.timeText}>Time {totalTime} mins total</Text>
+          <Text style={styles.timeText}>Suggested cook timer {suggestedCookingTimerMinutes} min</Text>
+        </View>
+        <View style={styles.timeSummaryRow}>
+          <View style={styles.timeBadge}>
+            <Text style={styles.timeBadgeText}>Suggested Prep {suggestedPrepStageMinutes} min</Text>
+          </View>
+          <View style={styles.timeBadge}>
+            <Text style={styles.timeBadgeText}>Suggested Cook {suggestedCookingTimerMinutes} min</Text>
+          </View>
+          <View style={styles.timeBadge}>
+            <Text style={styles.timeBadgeText}>Suggested Total {suggestedTotalTime} min</Text>
+          </View>
         </View>
         <View style={styles.progressBarContainer}>
           <View style={[styles.progressBar, { width: `${progress}%` }]} />
@@ -244,9 +372,11 @@ const CookingStepsScreen: React.FC<CookingStepsScreenProps> = ({ navigation, rou
           variant="primary"
           size="large"
           fullWidth
-          onPress={handleStartTimer}
+          onPress={handleFinishCooking}
+          loading={finishing}
+          disabled={finishing}
         >
-          Finish Steps ->
+          Complete Cooking
         </Button>
       </View>
     </SafeAreaView>
@@ -262,9 +392,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: moderateScale(SPACING.base),
     paddingTop: moderateScale(SPACING.lg),
     paddingBottom: moderateScale(SPACING.sm),
+    zIndex: 20,
+    overflow: 'visible',
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: moderateScale(SPACING.sm),
+    gap: moderateScale(SPACING.sm),
+    zIndex: 20,
   },
   backButton: {
-    marginBottom: moderateScale(SPACING.md),
+    paddingTop: moderateScale(SPACING.xs),
   },
   backButtonText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
@@ -310,6 +450,23 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.border.light,
     borderRadius: BORDER_RADIUS.full,
     overflow: 'hidden',
+  },
+  timeSummaryRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: moderateScale(SPACING.xs),
+    marginBottom: moderateScale(SPACING.sm),
+  },
+  timeBadge: {
+    backgroundColor: COLORS.background.secondary,
+    borderRadius: BORDER_RADIUS.full,
+    paddingHorizontal: moderateScale(SPACING.sm),
+    paddingVertical: moderateScale(SPACING.xs),
+  },
+  timeBadgeText: {
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.xs),
+    color: COLORS.text.secondary,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
   },
   progressBar: {
     height: '100%',

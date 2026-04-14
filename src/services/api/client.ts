@@ -2,6 +2,7 @@
 import axios, { AxiosInstance, AxiosError, AxiosResponse } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG } from '../../constants/config';
+import { handleExpiredSession } from '../firebase/authService';
 
 // API Configuration
 const API_BASE_URL = API_CONFIG.BASE_URL;
@@ -45,6 +46,7 @@ const apiClient: AxiosInstance = axios.create({
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': '1',
   },
 });
 
@@ -78,7 +80,13 @@ apiClient.interceptors.request.use(
     
     // Log request in development
     if (__DEV__) {
-      console.log(`[req] ${config.method?.toUpperCase()} ${config.url}`, config.data);
+      const method = config.method?.toUpperCase() || 'GET';
+      const payload = method === 'GET' ? config.params : config.data;
+      if (typeof payload === 'undefined') {
+        console.log(`[req] ${method} ${config.url}`);
+      } else {
+        console.log(`[req] ${method} ${config.url}`, payload);
+      }
     }
     
     return config;
@@ -122,8 +130,7 @@ apiClient.interceptors.response.use(
             return apiClient(originalRequest);
           }
         } catch (refreshError) {
-          await AsyncStorage.removeItem('authToken');
-          await AsyncStorage.removeItem('refreshToken');
+          await handleExpiredSession();
         }
       }
       

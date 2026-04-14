@@ -5,40 +5,70 @@ export type RootStackParamList = {
 
   // Profile Settings
   ProfileSettings: undefined;
+  Notifications: undefined;
+  NotificationSettings: undefined;
   ChangeEmail: undefined;
   ChangePassword: undefined;
+  EditProfile: undefined;
 
   // Memory-Based Cooking Flow
   SimilarDishesScreen: {
     memoryQuery: string;
+    memoryId?: string;
+    similarDishes?: any[];
   };
 
   RecipeCustomization: {
     dishName: string;
     dishId?: string;
+    dishImage?: string;
     memoryQuery?: string;
+    recipe?: any;
+    autoAdapt?: boolean;
+    sourceIngredient?: string;
+    feedbackRecipeId?: string;
+    feedbackTarget?: 'recipes' | 'publicRecipes';
   };
 
   CookingSteps: {
     dishName: string;
+    dishImage?: string;
     servingSize: number;
     ingredients: any[];
-  };
-
-  CookingTimer: {
-    dishName: string;
-    totalCookTime: number;
-    servingSize: number;
+    instructions?: string[];
+    actualPrepTime?: number;
+    prepTime?: number;
+    cookTime?: number;
+    totalCookTime?: number;
+    recipeId?: string;
+    feedbackRecipeId?: string;
+    feedbackTarget?: 'recipes' | 'publicRecipes';
   };
 
   Done: {
     dishName: string;
+    dishImage?: string;
     servingSize: number;
+    prepTime?: number;
+    cookTime?: number;
+    totalCookTime?: number;
+    recipeId?: string;
+    feedbackRecipeId?: string;
+    feedbackTarget?: 'recipes' | 'publicRecipes';
+    historyId?: string;
   };
 
   Feedback: {
     dishName: string;
+    dishImage?: string;
     servingSize: number;
+    prepTime?: number;
+    cookTime?: number;
+    totalCookTime?: number;
+    recipeId?: string;
+    feedbackRecipeId?: string;
+    feedbackTarget?: 'recipes' | 'publicRecipes';
+    historyId?: string;
   };
 
   // Community Screens
@@ -46,6 +76,7 @@ export type RootStackParamList = {
   RecipeDescription: {
     recipeId?: string;
     recipe?: any;
+    openComments?: boolean;
   };
   CookbookReference: {
     cookbook: any;
@@ -81,6 +112,7 @@ export type RootStackParamList = {
     recipe?: any;
     isEdit?: boolean;
   };
+  AddAdaptation: undefined;
 
   // Auth
   Auth: undefined;

@@ -5,6 +5,13 @@ export const API_CONFIG = {
   TIMEOUT: 10000,
 };
 
+// AI backend for FAISS retrieval + recipe generation.
+// Local adaptation and smart scaling remain on the main API unless you proxy them separately.
+export const AI_CONFIG = {
+  BASE_URL: process.env.EXPO_PUBLIC_AI_URL || API_CONFIG.BASE_URL,
+  TIMEOUT: 60000,
+};
+
 export const DOA_CONFIG = {
   BASE_URL: 'https://doa.gov.lk/api',
   API_KEY: process.env.EXPO_PUBLIC_DOA_API_KEY || '',

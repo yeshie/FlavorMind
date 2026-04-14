@@ -17,12 +17,12 @@ import SplashScreen from '../features/auth/screens/SplashScreen';
 import ProfileSettingsScreen from '../features/profile/screens/ProfileSettingsScreen';
 import ChangeEmailScreen from '../features/profile/screens/ChangeEmailScreen';
 import ChangePasswordScreen from '../features/profile/screens/ChangePasswordScreen';
+import EditProfileScreen from '../features/profile/screens/EditProfileScreen';
 
 // Memory Cooking Flow Screens
 import SimilarDishesScreen from '../features/memory/screens/SimilarDishesScreen';
 import RecipeCustomizationScreen from '../features/memory/screens/RecipeCustomizationScreen';
 import CookingStepsScreen from '../features/memory/screens/CookingStepsScreen';
-import CookingTimerScreen from '../features/memory/screens/CookingTimerScreen';
 import DoneScreen from '../features/memory/screens/DoneScreen';
 import FeedbackScreen from '../features/memory/screens/FeedbackScreen';
 
@@ -59,10 +59,10 @@ type RootStackParamList = {
   ProfileSettings: undefined;
   ChangeEmail: undefined;
   ChangePassword: undefined;
+  EditProfile: undefined;
   SimilarDishesScreen: { [key: string]: any };
   RecipeCustomization: { [key: string]: any };
   CookingSteps: { [key: string]: any };
-  CookingTimer: { [key: string]: any };
   Done: { [key: string]: any };
   Feedback: { [key: string]: any };
   LocalAdaptation: undefined;
@@ -74,7 +74,7 @@ type RootStackParamList = {
   ScaledRecipeResults: { scalingQuery: string };
   SmartScalingSearchResults: { query: string };
   DigitalCommittee: undefined;
-  RecipeDescription: { recipeId?: string; recipe?: any };
+  RecipeDescription: { recipeId?: string; recipe?: any; openComments?: boolean };
   CookbookReference: { cookbook: any };
   CookbookIntroduction: { cookbookId: string };
   CookbookRecipePage: {
@@ -165,6 +165,7 @@ const RootNavigator: React.FC = () => {
             <Stack.Screen name="ProfileSettings" component={ProfileSettingsScreen} />
             <Stack.Screen name="ChangeEmail" component={ChangeEmailScreen} />
             <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+            <Stack.Screen name="EditProfile" component={EditProfileScreen} />
 
             {/* Memory-Based Cooking Flow */}
             <Stack.Screen
@@ -173,7 +174,6 @@ const RootNavigator: React.FC = () => {
             />
             <Stack.Screen name="RecipeCustomization" component={RecipeCustomizationScreen as React.ComponentType<any>} />
             <Stack.Screen name="CookingSteps" component={CookingStepsScreen as React.ComponentType<any>} />
-            <Stack.Screen name="CookingTimer" component={CookingTimerScreen as React.ComponentType<any>} />
             <Stack.Screen name="Done" component={DoneScreen as React.ComponentType<any>} />
             <Stack.Screen name="Feedback" component={FeedbackScreen as React.ComponentType<any>} />
 

@@ -15,6 +15,7 @@ import { COLORS, TYPOGRAPHY, SPACING } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Input from '../../../common/components/Input/Input';
 import Button from '../../../common/components/Button/button';
+import { changeCurrentUserPassword } from '../../../services/firebase/authService';
 
 interface ChangePasswordScreenProps {
   navigation: any;
@@ -50,12 +51,15 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({ navigation 
     setLoading(true);
 
     try {
-      // TODO: Implement password change with backend
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      const response = await changeCurrentUserPassword(currentPassword, newPassword);
+      if (!response.success) {
+        Alert.alert('Error', response.message || 'Failed to change password');
+        return;
+      }
+
       Alert.alert(
         'Success',
-        'Password changed successfully!',
+        response.message || 'Password changed successfully!',
         [
           {
             text: 'OK',

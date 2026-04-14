@@ -29,6 +29,7 @@ export interface FirestoreRecipe {
   image?: string | null;
   ownerId: string;
   ownerName?: string;
+  ownerPhotoUrl?: string | null;
   publishStatus?: PublishStatus;
   source?: RecipeSource;
   externalId?: string;
@@ -52,10 +53,12 @@ export interface SavedRecipeDoc {
   recipeId?: string;
   externalId?: string;
   source?: RecipeSource | string;
+  sourceLabel?: string;
   title: string;
   imageUrl?: string | null;
   creator?: string;
   rating?: number;
+  feedbackCount?: number;
   savedAt?: unknown;
 }
 
@@ -63,6 +66,7 @@ export interface CreateRecipeInput {
   title: string;
   ownerId: string;
   ownerName?: string;
+  ownerPhotoUrl?: string | null;
   publishStatus: PublishStatus;
   description?: string;
   imageUrl?: string | null;
@@ -84,10 +88,34 @@ export interface SaveRecipeInput {
   recipeId?: string;
   externalId?: string;
   source?: RecipeSource | string;
+  sourceLabel?: string;
   title: string;
   imageUrl?: string | null;
   creator?: string;
   rating?: number;
+  feedbackCount?: number;
+}
+
+export interface EnsureRecipeDocumentInput {
+  id?: string;
+  externalId?: string;
+  title: string;
+  description?: string;
+  imageUrl?: string | null;
+  image?: string | null;
+  ownerId?: string;
+  ownerName?: string;
+  ownerPhotoUrl?: string | null;
+  publishStatus?: PublishStatus;
+  source?: RecipeSource;
+  cuisine?: string;
+  category?: string;
+  difficulty?: string;
+  prepTime?: number;
+  cookTime?: number;
+  servings?: number;
+  ingredients?: Array<{ name: string; quantity?: string | number; unit?: string }>;
+  instructions?: Array<{ step: number; description: string }>;
 }
 
 const requireDb = (): Firestore => {
@@ -131,7 +159,32 @@ const toSortableTime = (value: unknown): number => {
   return 0;
 };
 
-const sanitizeId = (value: string) => value.replace(/[\/#?]+/g, '-');
+const isPermissionDeniedError = (error: unknown) => {
+  const code = (error as { code?: string } | null)?.code || '';
+  const message =
+    (error as { message?: string } | null)?.message?.toLowerCase() || '';
+  return code.includes('permission-denied') || message.includes('insufficient permissions');
+};
+
+const sanitizeId = (value: string) =>
+  value
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[\/#?%]+/g, '-')
+    .replace(/-+/g, '-');
+
+const buildManagedRecipeId = (input: EnsureRecipeDocumentInput) => {
+  if (input.ownerId && input.id) {
+    return sanitizeId(input.id);
+  }
+
+  const seed =
+    input.externalId ||
+    input.id ||
+    input.title ||
+    `recipe-${Date.now()}`;
+  return sanitizeId(`app-${seed.toLowerCase()}`);
+};
 
 const buildSavedRecipeId = (input: SaveRecipeInput): string => {
   if (input.id) return sanitizeId(input.id);
@@ -156,6 +209,61 @@ const recipeStore = {
 
     const docRef = await addDoc(recipesRef, payload);
     return { id: docRef.id, ...input };
+  },
+
+  async ensureRecipeDocument(input: EnsureRecipeDocumentInput): Promise<FirestoreRecipe> {
+    const firestore = requireDb();
+    const recipeId = buildManagedRecipeId(input);
+    const recipeRef = doc(firestore, 'recipes', recipeId);
+    let existing: Omit<FirestoreRecipe, 'id'> | undefined;
+
+    try {
+      const snapshot = await getDoc(recipeRef);
+      existing = snapshot.data() as Omit<FirestoreRecipe, 'id'> | undefined;
+    } catch (error) {
+      if (!isPermissionDeniedError(error)) {
+        throw error;
+      }
+    }
+
+    const source = input.source || existing?.source || 'api';
+    const publishStatus =
+      input.publishStatus
+      || existing?.publishStatus
+      || (source === 'user' ? 'draft' : 'approved');
+
+    const payload = {
+      title: input.title,
+      description: input.description || existing?.description || '',
+      imageUrl: input.imageUrl ?? input.image ?? existing?.imageUrl ?? existing?.image ?? null,
+      image: input.image ?? input.imageUrl ?? existing?.image ?? existing?.imageUrl ?? null,
+      ownerId: input.ownerId || existing?.ownerId || '',
+      ownerName: input.ownerName || existing?.ownerName || null,
+      ownerPhotoUrl: input.ownerPhotoUrl ?? existing?.ownerPhotoUrl ?? null,
+      publishStatus,
+      source,
+      externalId: input.externalId || input.id || existing?.externalId || null,
+      cuisine: input.cuisine || existing?.cuisine || '',
+      category: input.category || existing?.category || '',
+      difficulty: input.difficulty || existing?.difficulty || '',
+      prepTime: input.prepTime ?? existing?.prepTime ?? 0,
+      cookTime: input.cookTime ?? existing?.cookTime ?? 0,
+      servings: input.servings ?? existing?.servings ?? 1,
+      ingredients: input.ingredients || existing?.ingredients || [],
+      instructions: input.instructions || existing?.instructions || [],
+      rating: existing?.rating ?? 0,
+      feedbackCount: existing?.feedbackCount ?? 0,
+      views: existing?.views ?? 0,
+      createdAt: existing?.createdAt || serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    await setDoc(recipeRef, payload, { merge: true });
+
+    return {
+      id: recipeId,
+      ...payload,
+    } as FirestoreRecipe;
   },
 
   async getUserRecipes(ownerId: string): Promise<FirestoreRecipe[]> {
@@ -200,18 +308,29 @@ const recipeStore = {
     const firestore = requireDb();
     const savedId = buildSavedRecipeId(input);
     const savedRef = doc(firestore, 'users', userId, 'savedRecipes', savedId);
+    const payload: Record<string, unknown> = {
+      source: input.source || 'external',
+      title: input.title,
+      imageUrl: input.imageUrl || null,
+      creator: input.creator || null,
+      rating: input.rating ?? null,
+      feedbackCount: input.feedbackCount ?? null,
+      savedAt: serverTimestamp(),
+    };
+
+    if (input.recipeId) {
+      payload.recipeId = input.recipeId;
+    }
+    if (input.externalId) {
+      payload.externalId = input.externalId;
+    }
+    if (input.sourceLabel) {
+      payload.sourceLabel = input.sourceLabel;
+    }
+
     await setDoc(
       savedRef,
-      {
-        recipeId: input.recipeId,
-        externalId: input.externalId,
-        source: input.source || 'external',
-        title: input.title,
-        imageUrl: input.imageUrl || null,
-        creator: input.creator,
-        rating: input.rating,
-        savedAt: serverTimestamp(),
-      },
+      payload,
       { merge: true }
     );
   },

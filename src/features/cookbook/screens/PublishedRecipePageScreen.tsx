@@ -171,7 +171,7 @@ const PublishedRecipePageScreen: React.FC<PublishedRecipePageScreenProps> = ({
           source={
             dishImage
               ? { uri: dishImage }
-              : require('../../../assets/icon.png')
+              : require('../../../assets/icons/book.png')
           }
           style={styles.recipeImage}
           resizeMode="cover"

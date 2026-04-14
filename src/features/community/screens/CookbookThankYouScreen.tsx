@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Image,
   Alert,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Bookmark, ChevronRight, Share2, Sparkles, Star, Trophy } from 'lucide-react-native';
@@ -68,8 +69,24 @@ const CookbookThankYouScreen: React.FC<CookbookThankYouScreenProps> = ({
     });
   };
 
-  const handleShare = () => {
-    Alert.alert('Share Cookbook', 'Sharing functionality coming soon!');
+  const handleShare = async () => {
+    try {
+      const shareMessage = [
+        `Check out "${cookbook.title}" on FlavorMind.`,
+        cookbook.author ? `Created by ${cookbook.author}.` : '',
+        cookbook.recipesCount ? `${cookbook.recipesCount} recipes included.` : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
+
+      await Share.share({
+        message: shareMessage,
+        url: cookbook.coverImage || cookbook.coverImageUrl || undefined,
+      });
+    } catch (error) {
+      console.error('Cookbook share error:', error);
+      Alert.alert('Share Failed', 'Could not open the share sheet right now.');
+    }
   };
 
   const handleSave = async () => {

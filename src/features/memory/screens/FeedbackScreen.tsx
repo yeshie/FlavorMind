@@ -17,23 +17,45 @@ import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../co
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
 import feedbackService from '../../../services/api/feedback.service';
+import cookingHistoryStore, { isPermissionDeniedError } from '../../../services/firebase/cookingHistoryStore';
 import feedbackStore from '../../../services/firebase/feedbackStore';
+import publicRecipeStore from '../../../services/firebase/publicRecipeStore';
 import { getFirebaseUser } from '../../../services/firebase/authService';
 import { hasFirebaseConfig } from '../../../services/firebase/firebase';
+import { updateCookingHistoryFeedback } from '../../../services/storage/asyncStorage';
 
 interface FeedbackScreenProps {
   navigation: any;
   route: {
     params: {
       dishName: string;
+      dishImage?: string;
       servingSize: number;
+      prepTime?: number;
+      cookTime?: number;
+      totalCookTime?: number;
       recipeId?: string;
+      feedbackRecipeId?: string;
+      feedbackTarget?: 'recipes' | 'publicRecipes';
+      historyId?: string;
     };
   };
 }
 
 const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ navigation, route }) => {
-  const { dishName, servingSize, recipeId } = route.params;
+  const {
+    dishName,
+    dishImage,
+    servingSize,
+    prepTime,
+    cookTime,
+    totalCookTime,
+    recipeId,
+    feedbackRecipeId,
+    feedbackTarget,
+    historyId,
+  } = route.params;
+  const targetRecipeId = feedbackRecipeId || recipeId;
 
   const [rating, setRating] = useState(0);
   const [publicComment, setPublicComment] = useState('');
@@ -51,47 +73,121 @@ const FeedbackScreen: React.FC<FeedbackScreenProps> = ({ navigation, route }) =>
     setLoading(true);
 
     try {
+      const firebaseUser = getFirebaseUser();
+      if (feedbackTarget === 'publicRecipes' && hasFirebaseConfig && !firebaseUser) {
+        Alert.alert(
+          'Sign In Required',
+          'Your Firebase session is not active. Please sign in again before submitting feedback for this recipe.'
+        );
+        return;
+      }
+
       const publicCommentTrimmed = publicComment.trim();
+      const changesTrimmed = changes.trim();
+      const localImprovementsTrimmed = localImprovements.trim();
+      const personalTipsTrimmed = personalTips.trim();
       const parts = [
         publicCommentTrimmed ? `Comment: ${publicCommentTrimmed}` : '',
-        changes ? `Changes: ${changes}` : '',
-        localImprovements ? `Local Improvements: ${localImprovements}` : '',
-        personalTips ? `Tips: ${personalTips}` : '',
+        changesTrimmed ? `Changes: ${changesTrimmed}` : '',
+        localImprovementsTrimmed ? `Local Improvements: ${localImprovementsTrimmed}` : '',
+        personalTipsTrimmed ? `Tips: ${personalTipsTrimmed}` : '',
       ].filter(Boolean);
       const comment = parts.join('\n');
       let submitted = false;
 
-      if (recipeId && hasFirebaseConfig) {
-        const user = getFirebaseUser();
+      if (feedbackRecipeId && feedbackTarget && hasFirebaseConfig) {
+        const user = firebaseUser;
         if (user) {
           try {
-            await feedbackStore.submitFeedback(recipeId, {
-              userId: user.uid,
-              userName: user.displayName,
-              userAvatar: user.photoURL,
-              rating,
-              publicComment: publicCommentTrimmed || undefined,
-              comment,
-              dishName,
-            });
+            if (feedbackTarget === 'publicRecipes') {
+              await publicRecipeStore.submitFeedback(feedbackRecipeId, {
+                userId: user.uid,
+                userName: user.displayName,
+                userAvatar: user.photoURL,
+                rating,
+                publicComment: publicCommentTrimmed || undefined,
+                comment,
+                dishName,
+              });
+            } else {
+              await feedbackStore.submitFeedback(feedbackRecipeId, {
+                userId: user.uid,
+                userName: user.displayName,
+                userAvatar: user.photoURL,
+                rating,
+                publicComment: publicCommentTrimmed || undefined,
+                comment,
+                dishName,
+              });
+            }
             submitted = true;
           } catch (error) {
-            console.warn('Firestore feedback failed, falling back to API:', error);
+            console.warn(`${feedbackTarget} feedback failed:`, error);
+            if (feedbackTarget === 'publicRecipes') {
+              throw new Error('Public recipe feedback could not be saved in Firebase.');
+            }
           }
         }
       }
 
       if (!submitted) {
-        if (recipeId) {
-          await feedbackService.submitFeedback(recipeId, {
+        if (targetRecipeId && feedbackTarget !== 'publicRecipes') {
+          await feedbackService.submitFeedback(targetRecipeId, {
             rating,
             comment,
           });
           submitted = true;
-        } else {
+        } else if (!targetRecipeId) {
           await new Promise(resolve => setTimeout(resolve, 500));
           submitted = true;
+        } else if (feedbackTarget === 'publicRecipes') {
+          throw new Error('Public recipe feedback could not be saved.');
         }
+      }
+
+      if (historyId) {
+        const historyFeedback = {
+          id: historyId,
+          rating,
+          publicComment: publicCommentTrimmed || undefined,
+          changes: changesTrimmed || undefined,
+          localImprovements: localImprovementsTrimmed || undefined,
+          personalTips: personalTipsTrimmed || undefined,
+          comment: comment || undefined,
+        };
+
+        const historyTasks: Promise<unknown>[] = [
+          updateCookingHistoryFeedback(historyFeedback),
+        ];
+
+        if (firebaseUser && hasFirebaseConfig) {
+          historyTasks.push(
+            cookingHistoryStore
+              .saveHistory(firebaseUser.uid, {
+                id: historyId,
+                dishName,
+                dishImage,
+                recipeId,
+                feedbackRecipeId,
+                feedbackTarget,
+                servingSize,
+                prepTime,
+                cookTime,
+                totalCookTime,
+              })
+              .then(() => cookingHistoryStore.updateHistoryFeedback(firebaseUser.uid, historyFeedback))
+          );
+        }
+
+        const historyResults = await Promise.allSettled(historyTasks);
+        historyResults.forEach((result) => {
+          if (result.status === 'rejected') {
+            if (isPermissionDeniedError(result.reason)) {
+              return;
+            }
+            console.warn('Cooking history feedback save failed:', result.reason);
+          }
+        });
       }
 
       Alert.alert(

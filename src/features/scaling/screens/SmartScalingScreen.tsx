@@ -76,7 +76,7 @@ const SmartScalingScreen: React.FC<SmartScalingScreenProps> = ({ navigation }) =
   };
 
   const handleLibrary = () => {
-    navigation.navigate('RecipeLibrary');
+    navigation.navigate('DigitalCookbook');
   };
 
   const handleExamplePress = (example: ScalingExample) => {

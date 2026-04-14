@@ -245,7 +245,7 @@ const DigitalCommitteeScreen: React.FC<DigitalCommitteeScreenProps> = ({ navigat
   };
 
   const handleNotification = () => {
-    // TODO: Navigate to notifications
+    navigation.navigate('Notifications');
   };
 
   const handleProfile = () => {

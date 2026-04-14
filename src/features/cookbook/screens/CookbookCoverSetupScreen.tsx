@@ -10,12 +10,17 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Camera, Lightbulb } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
+import recipeService from '../../../services/api/recipe.service';
+import { buildRemoteImageSource } from '../../../common/utils';
 
 interface CookbookCoverSetupScreenProps {
   navigation: any;
@@ -38,6 +43,50 @@ const CookbookCoverSetupScreen: React.FC<CookbookCoverSetupScreenProps> = ({
   const [occupation, setOccupation] = useState('');
   const [aboutAuthor, setAboutAuthor] = useState('');
   const [thankYouMessage, setThankYouMessage] = useState('');
+  const [categoriesInput, setCategoriesInput] = useState('');
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
+  const [introImageUrl, setIntroImageUrl] = useState<string | null>(null);
+  const [thankYouImageUrl, setThankYouImageUrl] = useState<string | null>(null);
+  const [uploadingField, setUploadingField] = useState<'cover' | 'intro' | 'thankyou' | null>(null);
+
+  const uploadSelectedImage = async (
+    setter: React.Dispatch<React.SetStateAction<string | null>>,
+    field: 'cover' | 'intro' | 'thankyou'
+  ) => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please allow photo library access to upload images.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (result.canceled || !result.assets?.length) {
+      return;
+    }
+
+    const asset = result.assets[0];
+    setUploadingField(field);
+    try {
+      const fileType = asset.mimeType || 'image/jpeg';
+      const extension = fileType.split('/')[1] || 'jpg';
+      const upload = await recipeService.uploadRecipeImage({
+        uri: asset.uri,
+        name: asset.fileName || `${field}-${Date.now()}.${extension}`,
+        type: fileType,
+      });
+      setter(upload.data?.imageUrl || null);
+    } catch (error) {
+      console.error(`${field} image upload failed:`, error);
+      Alert.alert('Upload Failed', 'Could not upload the selected image right now.');
+    } finally {
+      setUploadingField(null);
+    }
+  };
 
   const handleNext = () => {
     // Validation
@@ -64,20 +113,27 @@ const CookbookCoverSetupScreen: React.FC<CookbookCoverSetupScreenProps> = ({
         occupation,
         aboutAuthor,
         thankYouMessage,
+        coverImageUrl,
+        introImageUrl,
+        thankYouImageUrl,
+        categories: categoriesInput
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean),
       },
     });
   };
 
   const handleUploadCoverImage = () => {
-    Alert.alert('Upload Image', 'Feature coming soon');
+    uploadSelectedImage(setCoverImageUrl, 'cover');
   };
 
   const handleUploadIntroImage = () => {
-    Alert.alert('Upload Image', 'Feature coming soon');
+    uploadSelectedImage(setIntroImageUrl, 'intro');
   };
 
   const handleUploadThankYouImage = () => {
-    Alert.alert('Upload Image', 'Feature coming soon');
+    uploadSelectedImage(setThankYouImageUrl, 'thankyou');
   };
 
   return (
@@ -142,10 +198,42 @@ const CookbookCoverSetupScreen: React.FC<CookbookCoverSetupScreenProps> = ({
               <TouchableOpacity
                 style={styles.uploadButton}
                 onPress={handleUploadCoverImage}
+                disabled={uploadingField === 'cover'}
               >
-                <Camera size={scaleFontSize(20)} color={COLORS.text.secondary} strokeWidth={2} style={styles.uploadIcon} />
-                <Text style={styles.uploadText}>Upload Cover Image</Text>
+                {uploadingField === 'cover' ? (
+                  <ActivityIndicator size="small" color={COLORS.text.secondary} />
+                ) : coverImageUrl ? (
+                  <Image
+                    source={buildRemoteImageSource(coverImageUrl)}
+                    style={styles.uploadPreview}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Camera
+                    size={scaleFontSize(20)}
+                    color={COLORS.text.secondary}
+                    strokeWidth={2}
+                    style={styles.uploadIcon}
+                  />
+                )}
+                <Text style={styles.uploadText}>
+                  {coverImageUrl ? 'Change Cover Image' : 'Upload Cover Image'}
+                </Text>
               </TouchableOpacity>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Categories</Text>
+              <Text style={styles.helperText}>
+                Add comma-separated tags like Curry, Family, Vegetarian
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g., Curry, Traditional, Family"
+                placeholderTextColor={COLORS.text.tertiary}
+                value={categoriesInput}
+                onChangeText={setCategoriesInput}
+              />
             </View>
 
             {/* Author Information Section */}
@@ -201,9 +289,27 @@ const CookbookCoverSetupScreen: React.FC<CookbookCoverSetupScreenProps> = ({
               <TouchableOpacity
                 style={styles.uploadButton}
                 onPress={handleUploadIntroImage}
+                disabled={uploadingField === 'intro'}
               >
-                <Camera size={scaleFontSize(20)} color={COLORS.text.secondary} strokeWidth={2} style={styles.uploadIcon} />
-                <Text style={styles.uploadText}>Upload Introduction Image</Text>
+                {uploadingField === 'intro' ? (
+                  <ActivityIndicator size="small" color={COLORS.text.secondary} />
+                ) : introImageUrl ? (
+                  <Image
+                    source={buildRemoteImageSource(introImageUrl)}
+                    style={styles.uploadPreview}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Camera
+                    size={scaleFontSize(20)}
+                    color={COLORS.text.secondary}
+                    strokeWidth={2}
+                    style={styles.uploadIcon}
+                  />
+                )}
+                <Text style={styles.uploadText}>
+                  {introImageUrl ? 'Change Introduction Image' : 'Upload Introduction Image'}
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -236,9 +342,27 @@ const CookbookCoverSetupScreen: React.FC<CookbookCoverSetupScreenProps> = ({
               <TouchableOpacity
                 style={styles.uploadButton}
                 onPress={handleUploadThankYouImage}
+                disabled={uploadingField === 'thankyou'}
               >
-                <Camera size={scaleFontSize(20)} color={COLORS.text.secondary} strokeWidth={2} style={styles.uploadIcon} />
-                <Text style={styles.uploadText}>Upload Thank You Image</Text>
+                {uploadingField === 'thankyou' ? (
+                  <ActivityIndicator size="small" color={COLORS.text.secondary} />
+                ) : thankYouImageUrl ? (
+                  <Image
+                    source={buildRemoteImageSource(thankYouImageUrl)}
+                    style={styles.uploadPreview}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Camera
+                    size={scaleFontSize(20)}
+                    color={COLORS.text.secondary}
+                    strokeWidth={2}
+                    style={styles.uploadIcon}
+                  />
+                )}
+                <Text style={styles.uploadText}>
+                  {thankYouImageUrl ? 'Change Thank You Image' : 'Upload Thank You Image'}
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -359,6 +483,12 @@ const styles = StyleSheet.create({
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
     fontWeight: TYPOGRAPHY.fontWeight.medium,
     color: COLORS.text.secondary,
+  },
+  uploadPreview: {
+    width: moderateScale(56),
+    height: moderateScale(56),
+    borderRadius: BORDER_RADIUS.md,
+    marginRight: moderateScale(SPACING.sm),
   },
   sectionDivider: {
     marginVertical: moderateScale(SPACING.xl),

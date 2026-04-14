@@ -11,21 +11,27 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { formatDistanceToNow } from 'date-fns';
 import {
   ArrowLeft,
   Bookmark,
   BookOpen,
   ChevronRight,
+  Clock3,
   FlaskConical,
   Globe,
   MessageCircle,
   Star,
 } from 'lucide-react-native';
-import { onAuthStateChanged } from 'firebase/auth';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
+import { buildRemoteImageSource } from '../../../common/utils';
 import Button from '../../../common/components/Button/button';
-import { getCurrentUser, getFirebaseUser } from '../../../services/firebase/authService';
+import { getFirebaseUser } from '../../../services/firebase/authService';
+import cookingHistoryStore, {
+  FirestoreCookingHistory,
+  isPermissionDeniedError,
+} from '../../../services/firebase/cookingHistoryStore';
 import recipeStore, {
   FirestoreRecipe,
   PublishStatus,
@@ -35,7 +41,10 @@ import cookbookStore, {
   FirestoreCookbook,
   SavedCookbookDoc,
 } from '../../../services/firebase/cookbookStore';
-import { auth, hasFirebaseConfig } from '../../../services/firebase/firebase';
+import {
+  getCookingHistory,
+  type CookingHistoryEntry,
+} from '../../../services/storage/asyncStorage';
 
 interface DigitalCookbookScreenProps {
   navigation: any;
@@ -45,8 +54,11 @@ interface SavedRecipe {
   id: string;
   dishName: string;
   dishImage: string;
-  creator: string;
+  source?: string;
+  creator?: string;
+  sourceLabel?: string;
   rating?: number;
+  feedbackCount?: number;
 }
 
 interface PublishedRecipe {
@@ -72,27 +84,132 @@ interface Cookbook {
   isPublished: boolean;
 }
 
+interface CookingHistoryItem {
+  id: string;
+  dishName: string;
+  dishImage: string;
+  servingSize?: number;
+  prepTime?: number;
+  cookTime?: number;
+  totalCookTime?: number;
+  rating?: number;
+  publicComment?: string;
+  changes?: string;
+  localImprovements?: string;
+  personalTips?: string;
+  timestamp: number;
+  relativeDate: string;
+}
+
 const DigitalCookbookScreen: React.FC<DigitalCookbookScreenProps> = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'published' | 'saved'>('published');
+  const [cookingHistory, setCookingHistory] = useState<CookingHistoryItem[]>([]);
   const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>([]);
   const [publishedRecipes, setPublishedRecipes] = useState<PublishedRecipe[]>([]);
   const [draftRecipes, setDraftRecipes] = useState<DraftRecipe[]>([]);
   const [publishedCookbooks, setPublishedCookbooks] = useState<Cookbook[]>([]);
   const [savedCookbooks, setSavedCookbooks] = useState<Cookbook[]>([]);
-  const [firebaseUid, setFirebaseUid] = useState<string | null>(null);
-  const [appUid, setAppUid] = useState<string | null>(null);
-  const [lastError, setLastError] = useState<string | null>(null);
 
   const normalizeStatus = (status?: PublishStatus): PublishStatus => status || 'draft';
+  const normalizeSourceLabel = (value?: string | null) =>
+    value === 'Retrieved Recipe' ? 'App Recipe' : value || undefined;
+  const toSortableTime = (value: unknown): number => {
+    if (!value) return 0;
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') return Date.parse(value) || 0;
+    if (typeof value === 'object') {
+      const anyValue = value as { seconds?: number; toMillis?: () => number };
+      if (typeof anyValue.toMillis === 'function') {
+        return anyValue.toMillis();
+      }
+      if (typeof anyValue.seconds === 'number') {
+        return anyValue.seconds * 1000;
+      }
+    }
+    return 0;
+  };
+  const formatRelativeDate = (value: unknown) => {
+    const timestamp = toSortableTime(value);
+    if (!timestamp) return 'Recently';
+    return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+  };
+  const mapLocalCookingHistory = (item: CookingHistoryEntry): CookingHistoryItem => {
+    const timestamp = Math.max(
+      toSortableTime(item.updatedAt),
+      toSortableTime(item.cookedAt)
+    );
+
+    return {
+      id: item.id,
+      dishName: item.dishName,
+      dishImage: item.dishImage || '',
+      servingSize: item.servingSize,
+      prepTime: item.prepTime,
+      cookTime: item.cookTime,
+      totalCookTime: item.totalCookTime,
+      rating: item.rating,
+      publicComment: item.publicComment,
+      changes: item.changes,
+      localImprovements: item.localImprovements,
+      personalTips: item.personalTips,
+      timestamp,
+      relativeDate: formatRelativeDate(item.updatedAt || item.cookedAt),
+    };
+  };
+  const mapRemoteCookingHistory = (item: FirestoreCookingHistory): CookingHistoryItem => {
+    const timestamp = Math.max(
+      toSortableTime(item.updatedAt),
+      toSortableTime(item.cookedAt)
+    );
+
+    return {
+      id: item.id,
+      dishName: item.dishName || 'Recipe',
+      dishImage: item.dishImage || '',
+      servingSize: item.servingSize ?? undefined,
+      prepTime: item.prepTime ?? undefined,
+      cookTime: item.cookTime ?? undefined,
+      totalCookTime: item.totalCookTime ?? undefined,
+      rating: item.rating ?? undefined,
+      publicComment: item.publicComment || undefined,
+      changes: item.changes || undefined,
+      localImprovements: item.localImprovements || undefined,
+      personalTips: item.personalTips || undefined,
+      timestamp,
+      relativeDate: formatRelativeDate(item.updatedAt || item.cookedAt),
+    };
+  };
+  const mergeCookingHistory = (
+    localItems: CookingHistoryItem[],
+    remoteItems: CookingHistoryItem[]
+  ) => {
+    const merged = new Map<string, CookingHistoryItem>();
+    localItems.forEach((item) => {
+      merged.set(item.id, item);
+    });
+    remoteItems.forEach((item) => {
+      merged.set(item.id, item);
+    });
+    return [...merged.values()].sort((left, right) => right.timestamp - left.timestamp);
+  };
+  const getHistoryPreview = (item: CookingHistoryItem) =>
+    item.publicComment
+    || item.changes
+    || item.localImprovements
+    || item.personalTips
+    || 'No feedback added yet.';
 
   const mapSavedRecipe = (recipe: SavedRecipeDoc): SavedRecipe => ({
     id: recipe.recipeId || recipe.externalId || recipe.id,
     dishName: recipe.title || 'Recipe',
     dishImage: recipe.imageUrl || '',
-    creator: recipe.creator || 'Unknown',
+    source: recipe.source || undefined,
+    creator: recipe.creator || undefined,
+    sourceLabel: normalizeSourceLabel(recipe.sourceLabel),
     rating: recipe.rating ?? undefined,
+    feedbackCount: recipe.feedbackCount ?? undefined,
   });
 
   const mapPublishedRecipe = (recipe: FirestoreRecipe): PublishedRecipe => ({
@@ -146,8 +263,11 @@ const DigitalCookbookScreen: React.FC<DigitalCookbookScreenProps> = ({ navigatio
     }
 
     try {
+      const localHistoryPromise = getCookingHistory();
       const firebaseUser = getFirebaseUser();
       if (!firebaseUser) {
+        const localHistory = await localHistoryPromise;
+        setCookingHistory(localHistory.map(mapLocalCookingHistory));
         setSavedRecipes([]);
         setPublishedRecipes([]);
         setDraftRecipes([]);
@@ -161,6 +281,8 @@ const DigitalCookbookScreen: React.FC<DigitalCookbookScreenProps> = ({ navigatio
         recipeStore.getSavedRecipes(firebaseUser.uid),
         cookbookStore.getUserCookbooks(firebaseUser.uid),
         cookbookStore.getSavedCookbooks(firebaseUser.uid),
+        localHistoryPromise,
+        cookingHistoryStore.getCookingHistory(firebaseUser.uid),
       ]);
 
       const labels = [
@@ -168,26 +290,25 @@ const DigitalCookbookScreen: React.FC<DigitalCookbookScreenProps> = ({ navigatio
         'savedRecipes',
         'cookbooks',
         'savedCookbooks',
+        'localCookingHistory',
+        'cookingHistory',
       ];
 
-      const errors: string[] = [];
       results.forEach((result, index) => {
         if (result.status === 'rejected') {
-          const message =
-            result.reason?.message ||
-            result.reason?.toString?.() ||
-            'Unknown error';
+          if (labels[index] === 'cookingHistory' && isPermissionDeniedError(result.reason)) {
+            return;
+          }
           console.error(`Cookbook dashboard load error (${labels[index]}):`, result.reason);
-          errors.push(`${labels[index]}: ${message}`);
         }
       });
-
-      setLastError(errors.length ? errors.join(' | ') : null);
 
       const userRecipes = results[0].status === 'fulfilled' ? results[0].value : [];
       const savedRecipeDocs = results[1].status === 'fulfilled' ? results[1].value : [];
       const userCookbooks = results[2].status === 'fulfilled' ? results[2].value : [];
       const savedCookbookDocs = results[3].status === 'fulfilled' ? results[3].value : [];
+      const localHistory = results[4].status === 'fulfilled' ? results[4].value : [];
+      const remoteHistory = results[5].status === 'fulfilled' ? results[5].value : [];
 
       const published = userRecipes.filter((recipe) => recipe.publishStatus === 'approved');
       const drafts = userRecipes.filter((recipe) => recipe.publishStatus !== 'approved');
@@ -200,11 +321,21 @@ const DigitalCookbookScreen: React.FC<DigitalCookbookScreenProps> = ({ navigatio
       setDraftRecipes(drafts.map(mapDraftRecipe));
       setPublishedCookbooks(publishedUserCookbooks.map(mapCookbook));
       setSavedCookbooks(savedCookbookDocs.map(mapSavedCookbook));
+      setCookingHistory(
+        mergeCookingHistory(
+          localHistory.map(mapLocalCookingHistory),
+          remoteHistory.map(mapRemoteCookingHistory)
+        )
+      );
     } catch (error) {
       console.error('Cookbook dashboard load error:', error);
-      setLastError(
-        (error as any)?.message || (error as any)?.toString?.() || 'Unknown error'
-      );
+      try {
+        const localHistory = await getCookingHistory();
+        setCookingHistory(localHistory.map(mapLocalCookingHistory));
+      } catch (historyError) {
+        console.error('Cooking history load error:', historyError);
+        setCookingHistory([]);
+      }
       setSavedRecipes([]);
       setPublishedRecipes([]);
       setDraftRecipes([]);
@@ -221,10 +352,20 @@ const DigitalCookbookScreen: React.FC<DigitalCookbookScreenProps> = ({ navigatio
   };
 
   const handleSavedRecipePress = (recipe: SavedRecipe) => {
-    // Go to cooking flow
-    navigation.navigate('RecipeCustomization', {
-      dishId: recipe.id,
-      dishName: recipe.dishName,
+    navigation.navigate('RecipeDescription', {
+      recipeId: recipe.id,
+      recipe: {
+        id: recipe.id,
+        title: recipe.dishName,
+        image: recipe.dishImage,
+        imageUrl: recipe.dishImage,
+        source: recipe.source,
+        ownerName: recipe.creator,
+        creator: recipe.creator,
+        sourceLabel: recipe.sourceLabel,
+        rating: recipe.rating,
+        feedbackCount: recipe.feedbackCount,
+      },
     });
   };
 
@@ -248,36 +389,6 @@ const DigitalCookbookScreen: React.FC<DigitalCookbookScreenProps> = ({ navigatio
     loadDashboard();
   }, [loadDashboard]);
 
-  useEffect(() => {
-    if (!auth) {
-      setFirebaseUid(null);
-      return;
-    }
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setFirebaseUid(user?.uid || null);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (!__DEV__) return;
-    let isActive = true;
-    getCurrentUser()
-      .then((user) => {
-        if (isActive) {
-          setAppUid(user?.uid || null);
-        }
-      })
-      .catch(() => {
-        if (isActive) {
-          setAppUid(null);
-        }
-      });
-    return () => {
-      isActive = false;
-    };
-  }, []);
-
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       {/* Header */}
@@ -293,24 +404,6 @@ const DigitalCookbookScreen: React.FC<DigitalCookbookScreenProps> = ({ navigatio
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Digital Cookbook</Text>
       </View>
-
-      {__DEV__ && (
-        <View style={styles.debugBar}>
-          <Text style={styles.debugText}>
-            Firebase: {hasFirebaseConfig ? 'configured' : 'missing'} | UID:{' '}
-            {firebaseUid || 'none'}
-          </Text>
-          <Text style={styles.debugText}>
-            Project: {process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || 'unknown'}
-          </Text>
-          <Text style={styles.debugText}>
-            App UID: {appUid || 'none'}
-          </Text>
-          {lastError && (
-            <Text style={styles.debugErrorText}>Last error: {lastError}</Text>
-          )}
-        </View>
-      )}
 
       <ScrollView
         style={styles.scrollView}
@@ -356,9 +449,8 @@ const DigitalCookbookScreen: React.FC<DigitalCookbookScreenProps> = ({ navigatio
                 >
                   <Image
                     source={
-                      recipe.dishImage
-                        ? { uri: recipe.dishImage }
-                        : require('../../../assets/icon.png')
+                      buildRemoteImageSource(recipe.dishImage)
+                      || require('../../../assets/icons/book.png')
                     }
                     style={styles.savedRecipeImage}
                     resizeMode="cover"
@@ -367,20 +459,28 @@ const DigitalCookbookScreen: React.FC<DigitalCookbookScreenProps> = ({ navigatio
                     <Text style={styles.savedRecipeName} numberOfLines={2}>
                       {recipe.dishName}
                     </Text>
-                    <Text style={styles.savedRecipeCreator} numberOfLines={1}>
-                      by {recipe.creator || 'Unknown'}
-                    </Text>
-                    <View style={styles.ratingRow}>
-                      <Star
-                        size={scaleFontSize(14)}
-                        color={COLORS.pastelOrange.main}
-                        strokeWidth={2}
-                        style={styles.ratingIcon}
-                      />
-                      <Text style={styles.ratingText}>
-                        {recipe.rating !== undefined ? recipe.rating.toFixed(1) : '--'}
+                    {recipe.creator ? (
+                      <Text style={styles.savedRecipeCreator} numberOfLines={1}>
+                        Created by {recipe.creator}
                       </Text>
-                    </View>
+                    ) : recipe.sourceLabel ? (
+                      <Text style={styles.savedRecipeCreator} numberOfLines={1}>
+                        {recipe.sourceLabel}
+                      </Text>
+                    ) : null}
+                    {(recipe.rating !== undefined || recipe.feedbackCount !== undefined) ? (
+                      <View style={styles.ratingRow}>
+                        <Star
+                          size={scaleFontSize(14)}
+                          color={COLORS.pastelOrange.main}
+                          strokeWidth={2}
+                          style={styles.ratingIcon}
+                        />
+                        <Text style={styles.ratingText}>
+                          {recipe.rating !== undefined ? recipe.rating.toFixed(1) : '--'}
+                        </Text>
+                      </View>
+                    ) : null}
                   </View>
                 </TouchableOpacity>
               ))
@@ -419,9 +519,8 @@ const DigitalCookbookScreen: React.FC<DigitalCookbookScreenProps> = ({ navigatio
               >
                 <Image
                   source={
-                    recipe.dishImage
-                      ? { uri: recipe.dishImage }
-                      : require('../../../assets/icon.png')
+                    buildRemoteImageSource(recipe.dishImage)
+                    || require('../../../assets/icons/book.png')
                   }
                   style={styles.publishedRecipeImage}
                   resizeMode="cover"
@@ -495,9 +594,8 @@ const DigitalCookbookScreen: React.FC<DigitalCookbookScreenProps> = ({ navigatio
                 >
                   <Image
                     source={
-                      recipe.dishImage
-                        ? { uri: recipe.dishImage }
-                        : require('../../../assets/icon.png')
+                      buildRemoteImageSource(recipe.dishImage)
+                      || require('../../../assets/icons/book.png')
                     }
                     style={styles.draftRecipeImage}
                     resizeMode="cover"
@@ -577,7 +675,7 @@ const DigitalCookbookScreen: React.FC<DigitalCookbookScreenProps> = ({ navigatio
                   source={
                     cookbook.coverImage
                       ? { uri: cookbook.coverImage }
-                      : require('../../../assets/icon.png')
+                      : require('../../../assets/icons/book.png')
                   }
                     style={styles.cookbookCover}
                     resizeMode="cover"
@@ -617,6 +715,98 @@ const DigitalCookbookScreen: React.FC<DigitalCookbookScreenProps> = ({ navigatio
             >
               Create Your Cookbook
             </Button>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Clock3
+              size={scaleFontSize(22)}
+              color={COLORS.pastelOrange.dark}
+              strokeWidth={2}
+              style={styles.sectionIcon}
+            />
+            <View style={styles.sectionTitleContainer}>
+              <Text style={styles.sectionTitle}>Cooking History</Text>
+              <Text style={styles.sectionCount}>{cookingHistory.length} cooked dishes</Text>
+            </View>
+          </View>
+
+          <View style={styles.cookingHistoryList}>
+            {cookingHistory.length > 0 ? (
+              cookingHistory.map((item) => (
+                <View key={item.id} style={styles.historyCard}>
+                  <Image
+                    source={
+                      buildRemoteImageSource(item.dishImage)
+                      || require('../../../assets/icons/book.png')
+                    }
+                    style={styles.historyCardImage}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.historyCardContent}>
+                    <View style={styles.historyCardHeader}>
+                      <Text style={styles.historyCardTitle} numberOfLines={2}>
+                        {item.dishName}
+                      </Text>
+                      <Text style={styles.historyCardDate}>{item.relativeDate}</Text>
+                    </View>
+
+                    <View style={styles.historyMetaRow}>
+                      {item.servingSize ? (
+                        <Text style={styles.historyMetaText}>
+                          Serves {item.servingSize}
+                        </Text>
+                      ) : null}
+                      {item.rating ? (
+                        <View style={styles.historyRatingRow}>
+                          <Star
+                            size={scaleFontSize(12)}
+                            color={COLORS.pastelOrange.main}
+                            strokeWidth={2}
+                          />
+                          <Text style={styles.historyMetaText}>{item.rating}/5</Text>
+                        </View>
+                      ) : null}
+                    </View>
+
+                    <View style={styles.historyTimeRow}>
+                      {item.prepTime ? (
+                        <View style={styles.historyTimeChip}>
+                          <Text style={styles.historyTimeChipText}>
+                            Prep {item.prepTime} min
+                          </Text>
+                        </View>
+                      ) : null}
+                      {item.cookTime ? (
+                        <View style={styles.historyTimeChip}>
+                          <Text style={styles.historyTimeChipText}>
+                            Cook {item.cookTime} min
+                          </Text>
+                        </View>
+                      ) : null}
+                      {item.totalCookTime ? (
+                        <View style={styles.historyTimeChip}>
+                          <Text style={styles.historyTimeChipText}>
+                            Total {item.totalCookTime} min
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+
+                    <Text style={styles.historyPreviewText} numberOfLines={2}>
+                      {getHistoryPreview(item)}
+                    </Text>
+                  </View>
+                </View>
+              ))
+            ) : (
+              !loading && (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyStateText}>No cooked dishes in history yet.</Text>
+                </View>
+              )
+            )}
           </View>
         </View>
 
@@ -839,6 +1029,79 @@ const styles = StyleSheet.create({
   cookbookList: {
     paddingHorizontal: moderateScale(SPACING.base),
   },
+  cookingHistoryList: {
+    paddingHorizontal: moderateScale(SPACING.base),
+  },
+  historyCard: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.background.white,
+    borderRadius: BORDER_RADIUS.xl,
+    marginBottom: moderateScale(SPACING.md),
+    overflow: 'hidden',
+    ...SHADOWS.medium,
+  },
+  historyCardImage: {
+    width: moderateScale(96),
+    height: '100%',
+    minHeight: moderateScale(132),
+    backgroundColor: COLORS.background.tertiary,
+  },
+  historyCardContent: {
+    flex: 1,
+    padding: moderateScale(SPACING.md),
+  },
+  historyCardHeader: {
+    marginBottom: moderateScale(SPACING.xs),
+  },
+  historyCardTitle: {
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: COLORS.text.primary,
+    marginBottom: moderateScale(2),
+  },
+  historyCardDate: {
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.xs),
+    color: COLORS.text.tertiary,
+  },
+  historyMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: moderateScale(SPACING.sm),
+    marginBottom: moderateScale(SPACING.sm),
+  },
+  historyRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(4),
+  },
+  historyMetaText: {
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.xs),
+    color: COLORS.text.secondary,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+  },
+  historyTimeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: moderateScale(SPACING.xs),
+    marginBottom: moderateScale(SPACING.sm),
+  },
+  historyTimeChip: {
+    backgroundColor: COLORS.background.secondary,
+    borderRadius: BORDER_RADIUS.full,
+    paddingHorizontal: moderateScale(SPACING.sm),
+    paddingVertical: moderateScale(SPACING.xs),
+  },
+  historyTimeChipText: {
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.xs),
+    color: COLORS.text.secondary,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+  },
+  historyPreviewText: {
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.sm),
+    color: COLORS.text.secondary,
+    lineHeight: TYPOGRAPHY.lineHeight.relaxed * scaleFontSize(TYPOGRAPHY.fontSize.sm),
+  },
   cookbookCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -889,24 +1152,6 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     color: COLORS.text.secondary,
-  },
-  debugBar: {
-    backgroundColor: COLORS.background.white,
-    marginHorizontal: moderateScale(SPACING.base),
-    marginTop: moderateScale(SPACING.sm),
-    padding: moderateScale(SPACING.sm),
-    borderRadius: BORDER_RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.border.light,
-  },
-  debugText: {
-    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.xs),
-    color: COLORS.text.secondary,
-  },
-  debugErrorText: {
-    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.xs),
-    color: COLORS.status.error,
-    marginTop: moderateScale(4),
   },
 });
 

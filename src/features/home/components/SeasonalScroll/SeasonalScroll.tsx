@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../../common/utils/responsive';
+import { buildRemoteImageSource } from '../../../../common/utils';
 import { SeasonalItem } from '../../types/home.types';
 
 interface SeasonalScrollProps {
@@ -59,11 +60,7 @@ const SeasonalScroll: React.FC<SeasonalScrollProps> = ({ items, onItemPress }) =
           >
             <View style={styles.imageContainer}>
               <Image
-                source={
-                  item.image
-                    ? { uri: item.image }
-                    : require('../../../../assets/icon.png')
-                }
+                source={buildRemoteImageSource(item.image) || require('../../../../assets/icon.png')}
                 style={styles.image}
                 resizeMode="cover"
               />

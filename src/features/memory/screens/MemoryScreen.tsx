@@ -1,5 +1,5 @@
 // src/features/memory/screens/MemoryScreen.tsx - Memory-Based Cooking Home
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -12,12 +12,15 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatDistanceToNow } from 'date-fns';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
+import { buildRemoteImageSource } from '../../../common/utils';
 import Button from '../../../common/components/Button/button';
-import memoryService, { FoodMemory } from '../../../services/api/memory.service';
+import recipeService from '../../../services/api/recipe.service';
+import { getRecallHistory, RecallHistoryEntry } from '../../../services/storage/asyncStorage';
 
 interface MemoryScreenProps {
   navigation: any;
@@ -27,6 +30,7 @@ interface MemoryHistory {
   id: string;
   dishName: string;
   description: string;
+  timestamp: string;
   date: string;
   image?: string;
   recipeId?: string;
@@ -46,23 +50,44 @@ const MemoryScreen: React.FC<MemoryScreenProps> = ({ navigation }) => {
     return formatDistanceToNow(parsed, { addSuffix: true });
   };
 
-  const mapMemoryHistory = (memory: FoodMemory): MemoryHistory => ({
+  const mapRecallHistory = (memory: RecallHistoryEntry): MemoryHistory => ({
     id: memory.id,
-    dishName: memory.generatedRecipe?.title || memory.generatedRecipe?.name || 'Generated Recipe',
-    description: memory.description,
-    date: formatRelativeDate(memory.createdAt),
-    image: memory.generatedRecipe?.imageUrl || memory.generatedRecipe?.image,
-    recipeId: memory.generatedRecipe?.id,
+    dishName: memory.dishName,
+    description: memory.prompt,
+    timestamp: memory.updatedAt,
+    date: formatRelativeDate(memory.updatedAt),
+    image: memory.image,
+    recipeId: memory.recipeId,
   });
+
+  const sortAndDeduplicateHistory = (
+    items: MemoryHistory[]
+  ): MemoryHistory[] => {
+    const merged = [...items].sort(
+      (left, right) =>
+        new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime()
+    );
+
+    const deduped = new Map<string, MemoryHistory>();
+    merged.forEach((item) => {
+      const recipeKey = `${item.recipeId || item.dishName}`.toLowerCase();
+      const promptKey = item.description.toLowerCase();
+      const key = `${recipeKey}::${promptKey}`;
+      if (!deduped.has(key)) {
+        deduped.set(key, item);
+      }
+    });
+
+    return [...deduped.values()].slice(0, 10);
+  };
 
   const loadMemoryHistory = useCallback(async () => {
     setLoadingHistory(true);
     try {
-      const response = await memoryService.getMemories(1, 10);
-      const memories = response.data.memories || [];
-      setMemoryHistory(memories.map(mapMemoryHistory));
+      const localHistory = await getRecallHistory();
+      setMemoryHistory(sortAndDeduplicateHistory(localHistory.map(mapRecallHistory)));
     } catch (error) {
-      console.error('Memory history load error:', error);
+      console.error('Recall history load error:', error);
       setMemoryHistory([]);
     } finally {
       setLoadingHistory(false);
@@ -79,24 +104,21 @@ const MemoryScreen: React.FC<MemoryScreenProps> = ({ navigation }) => {
       return;
     }
     setCreatingMemory(true);
-    memoryService
-      .createMemory({ description: memoryQuery.trim(), isVoiceInput: false })
+    recipeService
+      .getSimilarRecipes({ q: memoryQuery.trim(), limit: 6 })
       .then((response) => {
-        const memory = response.data.memory;
+        const recipes = response.data.recipes || [];
         navigation.navigate('SimilarDishesScreen', {
           memoryQuery: memoryQuery.trim(),
-          memoryId: memory.id,
-          similarDishes: (memory as any).similarDishes,
+          similarDishes: recipes,
         });
         setMemoryQuery('');
       })
       .catch((error) => {
-        console.error('Create memory error:', error);
+        console.error('Memory search error:', error);
         Alert.alert('Error', 'Could not generate recipes right now.');
       })
-      .finally(() => {
-        setCreatingMemory(false);
-      });
+      .finally(() => setCreatingMemory(false));
   };
 
   const handleMemoryHistoryPress = (memory: MemoryHistory) => {
@@ -104,12 +126,15 @@ const MemoryScreen: React.FC<MemoryScreenProps> = ({ navigation }) => {
     navigation.navigate('RecipeCustomization', {
       dishName: memory.dishName,
       dishId: memory.recipeId || memory.id,
+      dishImage: memory.image,
     });
   };
 
-  useEffect(() => {
-    loadMemoryHistory();
-  }, [loadMemoryHistory]);
+  useFocusEffect(
+    useCallback(() => {
+      void loadMemoryHistory();
+    }, [loadMemoryHistory])
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -191,7 +216,7 @@ const MemoryScreen: React.FC<MemoryScreenProps> = ({ navigation }) => {
         <View style={styles.historySection}>
           <View style={styles.historySectionHeader}>
             <Text style={styles.historyTitle}>Recent Memory Cooking</Text>
-            <Text style={styles.historySubtitle}>Your generated recipes</Text>
+            <Text style={styles.historySubtitle}>Your prompts and selected recipes</Text>
           </View>
 
           {loadingHistory ? (
@@ -208,11 +233,7 @@ const MemoryScreen: React.FC<MemoryScreenProps> = ({ navigation }) => {
                 activeOpacity={0.8}
               >
                 <Image
-                  source={
-                    memory.image
-                      ? { uri: memory.image }
-                      : require('../../../assets/icon.png')
-                  }
+                  source={buildRemoteImageSource(memory.image) || require('../../../assets/icon.png')}
                   style={styles.historyImage}
                   resizeMode="cover"
                 />
@@ -227,7 +248,10 @@ const MemoryScreen: React.FC<MemoryScreenProps> = ({ navigation }) => {
                   <Text style={styles.historyDate}>{memory.date}</Text>
                 </View>
 
-                <TouchableOpacity style={styles.historyButton}>
+                <TouchableOpacity
+                  style={styles.historyButton}
+                  onPress={() => handleMemoryHistoryPress(memory)}
+                >
                   <Text style={styles.historyButtonText}>Open</Text>
                 </TouchableOpacity>
               </TouchableOpacity>

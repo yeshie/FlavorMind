@@ -13,7 +13,7 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { ArrowLeft, Camera, Save } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
@@ -32,6 +32,7 @@ interface PickedImage {
 }
 
 const AddAdaptationScreen: React.FC<AddAdaptationScreenProps> = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
   const [original, setOriginal] = useState('');
   const [substitute, setSubstitute] = useState('');
   const [reason, setReason] = useState('');
@@ -80,7 +81,7 @@ const AddAdaptationScreen: React.FC<AddAdaptationScreenProps> = ({ navigation })
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaType.Images,
+      mediaTypes: ['images'],
       quality: 0.8,
     });
 
@@ -97,6 +98,15 @@ const AddAdaptationScreen: React.FC<AddAdaptationScreenProps> = ({ navigation })
       name,
       type,
     });
+  };
+
+  const handleBack = () => {
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
+      return;
+    }
+
+    navigation.navigate('LocalAdaptation');
   };
 
   const handleSave = async () => {
@@ -140,7 +150,7 @@ const AddAdaptationScreen: React.FC<AddAdaptationScreenProps> = ({ navigation })
 
       await ingredientService.createAdaptation(payload);
       Alert.alert('Success', 'Local adaptation saved.');
-      navigation.goBack();
+      handleBack();
     } catch (error) {
       console.error('Save adaptation error:', error);
       Alert.alert('Error', 'Could not save adaptation right now.');
@@ -150,7 +160,7 @@ const AddAdaptationScreen: React.FC<AddAdaptationScreenProps> = ({ navigation })
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -158,7 +168,9 @@ const AddAdaptationScreen: React.FC<AddAdaptationScreenProps> = ({ navigation })
         <View style={styles.pageIntro}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={handleBack}
+            activeOpacity={0.8}
+            hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
           >
             <View style={styles.backButtonContent}>
               <ArrowLeft size={scaleFontSize(16)} color={COLORS.pastelOrange.dark} />
@@ -170,6 +182,7 @@ const AddAdaptationScreen: React.FC<AddAdaptationScreenProps> = ({ navigation })
 
         <ScrollView
           style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -296,11 +309,11 @@ const AddAdaptationScreen: React.FC<AddAdaptationScreenProps> = ({ navigation })
             )}
           </View>
 
-          <View style={styles.bottomSpacer} />
+          <View style={[styles.bottomSpacer, { height: moderateScale(SPACING['4xl']) + insets.bottom }]} />
         </ScrollView>
 
-        <View style={styles.footer}>
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+        <View style={[styles.footer, { paddingBottom: moderateScale(SPACING.md) + insets.bottom }]}>
+          <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.9}>
             <View style={styles.saveButtonContent}>
               <Save size={scaleFontSize(18)} color={COLORS.text.white} strokeWidth={2} style={styles.saveButtonIcon} />
               <Text style={styles.saveButtonText}>Save Adaptation</Text>
@@ -353,6 +366,9 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+  },
   formContainer: {
     padding: moderateScale(SPACING.base),
   },
@@ -392,17 +408,20 @@ const styles = StyleSheet.create({
   uploadButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: COLORS.background.white,
     borderRadius: BORDER_RADIUS.md,
-    padding: moderateScale(SPACING.md),
-    borderWidth: 1,
-    borderColor: COLORS.border.light,
+    padding: moderateScale(SPACING.lg),
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: COLORS.border.main,
   },
   uploadIcon: {
     marginRight: moderateScale(SPACING.sm),
   },
   uploadText: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
     color: COLORS.text.secondary,
   },
   previewImage: {

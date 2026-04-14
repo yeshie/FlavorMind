@@ -25,10 +25,14 @@ export interface FirestoreCookbook {
   ownerId: string;
   authorName?: string;
   coverImageUrl?: string | null;
+  introImageUrl?: string | null;
+  thankYouImageUrl?: string | null;
   introduction?: string;
   occupation?: string;
   aboutAuthor?: string;
   thankYouMessage?: string;
+  categories?: string[];
+  shareVisibility?: 'public' | 'private';
   recipes?: string[];
   recipesCount?: number;
   publishStatus?: CookbookPublishStatus;
@@ -36,6 +40,8 @@ export interface FirestoreCookbook {
   externalId?: string;
   ratingAverage?: number;
   ratingCount?: number;
+  reviewedBy?: string | null;
+  reviewedAt?: unknown;
   createdAt?: unknown;
   updatedAt?: unknown;
 }
@@ -58,10 +64,14 @@ export interface CreateCookbookInput {
   ownerId: string;
   authorName?: string;
   coverImageUrl?: string | null;
+  introImageUrl?: string | null;
+  thankYouImageUrl?: string | null;
   introduction?: string;
   occupation?: string;
   aboutAuthor?: string;
   thankYouMessage?: string;
+  categories?: string[];
+  shareVisibility?: 'public' | 'private';
   recipes: string[];
   recipesCount: number;
   publishStatus?: CookbookPublishStatus;
@@ -132,7 +142,7 @@ const cookbookStore = {
     const cookbooksRef = collection(firestore, 'cookbooks');
     const payload = {
       ...input,
-      publishStatus: input.publishStatus || 'approved',
+      publishStatus: input.publishStatus || 'pending',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };

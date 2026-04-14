@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, ChevronRight, Lightbulb } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
+import { buildRemoteImageSource } from '../../../common/utils';
 import recipeService, { Recipe } from '../../../services/api/recipe.service';
 
 interface ScaledRecipeResultsScreenProps {
@@ -56,7 +57,7 @@ const ScaledRecipeResultsScreen: React.FC<ScaledRecipeResultsScreenProps> = ({
           recipesLimit: 5,
         });
         const scale = response.data?.scale;
-        const recipes = response.data?.recipes || [];
+        const recipes = response.data?.recipes || response.data?.scale?.recipes || [];
         const base = scale?.inputs?.[0];
         setScaleMeta({
           baseIngredient: base?.name,
@@ -170,11 +171,7 @@ const ScaledRecipeResultsScreen: React.FC<ScaledRecipeResultsScreenProps> = ({
 
                 {/* Recipe Image */}
                 <Image
-                  source={
-                    recipe.image
-                      ? { uri: recipe.image }
-                      : require('../../../assets/icon.png')
-                  }
+                  source={buildRemoteImageSource(recipe.image) || require('../../../assets/icons/book.png')}
                   style={styles.recipeImage}
                   resizeMode="cover"
                 />

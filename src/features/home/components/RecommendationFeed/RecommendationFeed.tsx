@@ -11,6 +11,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../../common/utils/responsive';
+import { buildRemoteImageSource } from '../../../../common/utils';
 import { RecipeRecommendation } from '../../types/home.types';
 
 interface RecommendationFeedProps {
@@ -38,8 +39,8 @@ const RecommendationFeed: React.FC<RecommendationFeedProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Suggested for Your Palette</Text>
-        <Text style={styles.subtitle}>Based on your cooking habits</Text>
+        <Text style={styles.title}>Made for You</Text>
+        <Text style={styles.subtitle}>Based on your searches, saves, and cooking activity</Text>
       </View>
 
       {recommendations.map((recipe) => (
@@ -50,11 +51,7 @@ const RecommendationFeed: React.FC<RecommendationFeedProps> = ({
           activeOpacity={0.9}
         >
           <ImageBackground
-            source={
-              recipe.image
-                ? { uri: recipe.image }
-                : require('../../../../assets/icon.png')
-            }
+            source={buildRemoteImageSource(recipe.image) || require('../../../../assets/icon.png')}
             style={styles.imageBackground}
             imageStyle={styles.image}
           >

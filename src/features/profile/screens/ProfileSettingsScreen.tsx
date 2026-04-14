@@ -9,11 +9,11 @@ import {
   Alert,
   Image,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Bell, ChevronRight, FileText, Globe, HelpCircle, Info, Key, Lock, Mail, Pencil } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
-import Input from '../../../common/components/Input/Input';
 import Button from '../../../common/components/Button/button';
 import { getCurrentUser, logout } from '../../../services/firebase/authService';
 
@@ -28,6 +28,12 @@ const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({ navigatio
   useEffect(() => {
     loadUserData();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      void loadUserData();
+    }, [])
+  );
 
   const loadUserData = async () => {
     const userData = await getCurrentUser();
@@ -117,11 +123,19 @@ const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({ navigatio
         <View style={styles.profileCard}>
           <View style={styles.avatarContainer}>
             <Image
-              source={require('../../../assets/icons/user.png')}
+              source={
+                user?.photoURL
+                  ? { uri: user.photoURL }
+                  : require('../../../assets/icons/user.png')
+              }
               style={styles.avatar}
               resizeMode="cover"
             />
-            <TouchableOpacity style={styles.editAvatarButton}>
+            <TouchableOpacity
+              style={styles.editAvatarButton}
+              onPress={handleEditProfile}
+              activeOpacity={0.8}
+            >
               <Pencil size={scaleFontSize(16)} color={COLORS.text.white} strokeWidth={2} style={styles.editAvatarText} />
             </TouchableOpacity>
           </View>

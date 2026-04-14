@@ -10,6 +10,9 @@ service cloud.firestore {
     function isRecipeApprovedData(data) {
       return data != null && (data.publishStatus == "approved" || !hasPublishStatus(data));
     }
+    function isCookbookApprovedData(data) {
+      return data != null && (data.publishStatus == "approved" || !hasPublishStatus(data));
+    }
     function toInt(value) {
       return value is int ? value : 0;
     }
@@ -22,10 +25,14 @@ service cloud.firestore {
                   || isOwner(resource.data.ownerId)
                   || isAdmin();
 
-      allow create: if signedIn()
-                    && request.resource.data.ownerId == request.auth.uid
-                    && (request.resource.data.publishStatus == "draft"
-                        || request.resource.data.publishStatus == "pending");
+      allow create: if (signedIn()
+                        && request.resource.data.ownerId == request.auth.uid
+                        && (request.resource.data.publishStatus == "draft"
+                            || request.resource.data.publishStatus == "pending"))
+                    || (signedIn()
+                        && (request.resource.data.source == "api"
+                            || request.resource.data.source == "ai")
+                        && request.resource.data.publishStatus == "approved");
 
       allow update: if isAdmin()
                     || (isOwner(resource.data.ownerId)
@@ -64,17 +71,69 @@ service cloud.firestore {
                             || (signedIn() && isOwner(recipeDoc(recipeId).data.ownerId));
     }
 
+    match /publicRecipes/{recipeKey} {
+      allow read: if true;
+
+      allow create: if signedIn()
+                    && request.resource.data.recipeKey == recipeKey
+                    && request.resource.data.title is string
+                    && request.resource.data.titleLower is string
+                    && (request.resource.data.source == "ai"
+                        || request.resource.data.source == "app"
+                        || request.resource.data.source == "retrieved");
+
+      allow update: if isAdmin()
+                    || (signedIn()
+                        && request.resource.data.recipeKey == resource.data.recipeKey
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly([
+                            "title",
+                            "titleLower",
+                            "description",
+                            "source",
+                            "imageUrl",
+                            "image",
+                            "externalId",
+                            "rating",
+                            "feedbackCount",
+                            "views",
+                            "updatedAt"
+                          ]));
+
+      allow delete: if isAdmin();
+    }
+
+    match /publicRecipes/{recipeKey}/feedback/{feedbackId} {
+      allow read: if true;
+
+      allow create: if signedIn()
+                    && feedbackId == request.auth.uid
+                    && request.resource.data.userId == request.auth.uid;
+
+      allow update, delete: if isAdmin()
+                            || (signedIn() && resource.data.userId == request.auth.uid);
+    }
+
     match /cookbooks/{cookbookId} {
-      allow read: if resource.data.publishStatus == "approved"
+      allow read: if isCookbookApprovedData(resource.data)
                   || isOwner(resource.data.ownerId)
                   || isAdmin();
 
       allow create: if signedIn()
-                    && request.resource.data.ownerId == request.auth.uid;
+                    && request.resource.data.ownerId == request.auth.uid
+                    && (request.resource.data.publishStatus == "draft"
+                        || request.resource.data.publishStatus == "pending");
 
       allow update: if isAdmin()
                     || (isOwner(resource.data.ownerId)
-                        && request.resource.data.publishStatus == resource.data.publishStatus);
+                        && (
+                          request.resource.data.publishStatus == resource.data.publishStatus
+                          || (
+                            request.resource.data.publishStatus == "pending"
+                            && (resource.data.publishStatus == "draft"
+                                || resource.data.publishStatus == "rejected")
+                          )
+                        ));
 
       allow delete: if isOwner(resource.data.ownerId) || isAdmin();
     }
@@ -85,6 +144,14 @@ service cloud.firestore {
 
     match /users/{uid}/savedCookbooks/{savedId} {
       allow read, write: if request.auth.uid == uid;
+    }
+
+    match /users/{uid}/cookingHistory/{historyId} {
+      allow read, write: if request.auth.uid == uid || isAdmin();
+    }
+
+    match /users/{uid}/notifications/{notificationId} {
+      allow read, create, update, delete: if request.auth.uid == uid || isAdmin();
     }
 
     match /users/{uid} {

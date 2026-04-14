@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, ChevronRight, Library, Lightbulb, Plus, Shuffle } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
+import { buildRemoteImageSource } from '../../../common/utils';
 import seasonalService, { SeasonalFood as SeasonalFoodApi } from '../../../services/api/seasonal.service';
 import recipeService, { Recipe } from '../../../services/api/recipe.service';
 import * as Location from 'expo-location';
@@ -99,14 +100,42 @@ const LocalAdaptationScreen: React.FC<LocalAdaptationScreenProps> = ({ navigatio
     guideSlug: item?.guideSlug || item?.guideId || null,
   });
 
-  const mapSuggestedRecipe = (recipe: Recipe, index: number): SuggestedRecipeCard => ({
-    id: recipe.id || recipe.title || recipe.dish || `${Date.now()}-${index}`,
-    title: recipe.title || recipe.dish || 'Recipe',
-    image: recipe.imageUrl || recipe.image,
-    prepTime: recipe.prepTime || recipe.cookTime || 0,
-    difficulty: recipe.difficulty || 'medium',
-    recipe,
-  });
+  const mergeAdaptations = useCallback((items: any[] = []) => {
+    const seen = new Set<string>();
+
+    return items
+      .map(normalizeAdaptation)
+      .filter((item) => {
+        const key = `${item.original.trim().toLowerCase()}::${item.substitute.trim().toLowerCase()}`;
+        if (seen.has(key)) {
+          return false;
+        }
+
+        seen.add(key);
+        return true;
+      });
+  }, []);
+
+  const loadIngredientAdaptations = useCallback(async (query: string, seedItems: any[] = []) => {
+    try {
+      const response = await recipeService.getLocalAdaptations({
+        q: query,
+        ingredients: [query],
+        limit: 6,
+      });
+
+      return mergeAdaptations([
+        ...seedItems,
+        ...(response.data?.adaptations || []),
+      ]);
+    } catch (error) {
+      if (seedItems.length > 0) {
+        return mergeAdaptations(seedItems);
+      }
+
+      throw error;
+    }
+  }, [mergeAdaptations]);
 
   const loadSeasonalFoods = useCallback(async () => {
     setLoadingSeasonal(true);
@@ -138,7 +167,7 @@ const LocalAdaptationScreen: React.FC<LocalAdaptationScreenProps> = ({ navigatio
 
     try {
       const response = await recipeService.searchRecipes(query);
-      let recipes = response.data?.recipes || [];
+      const recipes = response.data?.recipes || [];
       const intent = response.data?.intent || 'dish';
       const adaptationItems = response.data?.adaptations || [];
 
@@ -152,28 +181,25 @@ const LocalAdaptationScreen: React.FC<LocalAdaptationScreenProps> = ({ navigatio
         return;
       }
 
-      if (intent === 'ingredient') {
-        if (recipes.length === 0) {
-          try {
-            const fallback = await recipeService.getSimilarRecipes({
-              ingredient: query,
-              limit: 5,
-            });
-            recipes = fallback.data?.recipes || [];
-          } catch (fallbackError) {
-            console.warn('Similar recipes fallback error:', fallbackError);
-          }
-        }
+      const shouldLoadAdaptations =
+        intent === 'ingredient' || adaptationItems.length > 0 || recipes.length === 0;
+      const nextAdaptations = shouldLoadAdaptations
+        ? await loadIngredientAdaptations(query, adaptationItems)
+        : [];
 
-        setAdaptations(adaptationItems.map(normalizeAdaptation));
-        setSuggestedRecipes(recipes.map(mapSuggestedRecipe));
+      if (nextAdaptations.length > 0) {
+        setAdaptations(nextAdaptations);
+        setSuggestedRecipes([]);
       } else {
         setAdaptations([]);
+        setSuggestedRecipes([]);
+        setAdaptationError(`No local substitutions found for "${query}" right now.`);
       }
     } catch (error) {
       console.error('Local adaptation search error:', error);
       setAdaptationError('Could not load local adaptations.');
       setAdaptations([]);
+      setSuggestedRecipes([]);
     } finally {
       setSearchingAdaptations(false);
     }
@@ -188,7 +214,7 @@ const LocalAdaptationScreen: React.FC<LocalAdaptationScreenProps> = ({ navigatio
   };
 
   const handleLibrary = () => {
-    navigation.navigate('RecipeLibrary');
+    navigation.navigate('DigitalCookbook');
   };
 
   const handleSeasonalFoodPress = (food: SeasonalFoodCard) => {
@@ -388,11 +414,7 @@ const LocalAdaptationScreen: React.FC<LocalAdaptationScreenProps> = ({ navigatio
                 activeOpacity={0.9}
               >
                 <Image
-                  source={
-                    recipe.image
-                      ? { uri: recipe.image }
-                      : require('../../../assets/icon.png')
-                  }
+                  source={buildRemoteImageSource(recipe.image) || require('../../../assets/icons/book.png')}
                   style={styles.suggestedImage}
                   resizeMode="cover"
                 />
@@ -437,11 +459,7 @@ const LocalAdaptationScreen: React.FC<LocalAdaptationScreenProps> = ({ navigatio
                   activeOpacity={0.9}
                 >
                   <Image
-                    source={
-                      food.image
-                        ? { uri: food.image }
-                        : require('../../../assets/icon.png')
-                    }
+                    source={buildRemoteImageSource(food.image) || require('../../../assets/icon.png')}
                     style={styles.seasonalImage}
                     resizeMode="cover"
                   />
