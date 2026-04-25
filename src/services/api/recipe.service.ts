@@ -122,11 +122,16 @@ const KNOWN_UNITS = new Set([
   'packet', 'packets', 'medium', 'large', 'small',
 ]);
 
+const PREP_NOTE_PATTERN = /^(finely\s+)?(chopped|sliced|diced|minced|crushed|grated|peeled|seeded|beaten|washed|drained|cooked|shredded|torn|ground|roasted|toasted)$/i;
+const QUANTITY_START_PATTERN = /^(\d+(?:[./]\d+)?|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\b/i;
+
 const shouldSkipIngredient = (value: string) => {
   const normalized = value.trim().toLowerCase();
   return !normalized
     || normalized.startsWith('special equipment')
     || normalized.startsWith('equipment:')
+    || normalized.startsWith('ingredients:')
+    || normalized === 'ingredients'
     || normalized.startsWith('for serving:')
     || normalized === 'to serve';
 };
@@ -136,12 +141,62 @@ const splitIntoSentences = (value: string): string[] =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+const cleanIngredientText = (value: string) =>
+  value
+    .replace(/^\s*(ingredients?|ingredient list)\s*:\s*/i, '')
+    .replace(/^\s*(?:[-*\u2022]|\d+[\).\-\:])\s*/, '')
+    .trim();
+
+const looksLikeStandaloneIngredient = (value: string) => {
+  const cleaned = cleanIngredientText(value);
+  if (!cleaned || /[.!?]/.test(cleaned)) return false;
+  return cleaned.split(/\s+/).length <= 8;
+};
+
+const splitCommaSeparatedIngredients = (value: string): string[] => {
+  const parts = value
+    .split(/\s*,\s*/)
+    .map(cleanIngredientText)
+    .filter(Boolean);
+
+  if (parts.length < 3) {
+    return [value];
+  }
+
+  const hasQuantityAfterFirst = parts.slice(1).some((part) => QUANTITY_START_PATTERN.test(part));
+  const firstHasQuantity = QUANTITY_START_PATTERN.test(parts[0]);
+  const trailingPartsLookLikeIngredients = parts
+    .slice(1)
+    .every((part) => looksLikeStandaloneIngredient(part.replace(/^or\s+/i, '')));
+  const looksLikeNameList = parts.every(
+    (part) => looksLikeStandaloneIngredient(part) || PREP_NOTE_PATTERN.test(part)
+  );
+
+  if (!hasQuantityAfterFirst && !looksLikeNameList && !(firstHasQuantity && trailingPartsLookLikeIngredients)) {
+    return [value];
+  }
+
+  return parts.reduce<string[]>((acc, part) => {
+    const cleanedPart = part.replace(/^or\s+/i, '');
+    if (PREP_NOTE_PATTERN.test(cleanedPart) && acc.length > 0) {
+      acc[acc.length - 1] = `${acc[acc.length - 1]} ${cleanedPart}`;
+      return acc;
+    }
+
+    acc.push(cleanedPart);
+    return acc;
+  }, []);
+};
+
 const splitIngredientText = (value: string): string[] =>
   value
     .replace(/\r/g, '\n')
+    .trim()
     .split(/\n+/)
+    .flatMap((line) => line.split(/\s+(?=\d+[\).\-\:]\s)/))
     .flatMap((line) => line.split(/\s*[;|]\s*/))
-    .map((line) => line.replace(/^[\-\u2022*]\s*/, '').trim())
+    .flatMap(splitCommaSeparatedIngredients)
+    .map(cleanIngredientText)
     .filter(Boolean)
     .filter((line) => !shouldSkipIngredient(line));
 
@@ -244,17 +299,21 @@ const normalizeIngredients = (value: any): Ingredient[] => {
 };
 
 const splitInstructionText = (value: string): string[] => {
-  const normalized = value.replace(/\r/g, '\n').trim();
+  const normalized = value
+    .replace(/\r/g, '\n')
+    .replace(/^\s*(instructions?|method|steps)\s*:\s*/i, '')
+    .trim();
   if (!normalized) return [];
 
   const lineSplit = normalized
     .split(/\n+/)
+    .flatMap((line) => line.split(/\s+(?=(?:step\s*)?\d+[\).\-\:]\s)/i))
     .map((line) => line.replace(/^\s*(step\s*)?\d+[\).\-\:]?\s*/i, '').trim())
     .filter(Boolean);
   if (lineSplit.length > 1) return lineSplit;
 
   const numberedInline = normalized
-    .split(/\s(?=\d+[\).\-\:]\s)/)
+    .split(/\s+(?=(?:step\s*)?\d+[\).\-\:]\s)/i)
     .map((line) => line.replace(/^\s*(step\s*)?\d+[\).\-\:]?\s*/i, '').trim())
     .filter(Boolean);
   if (numberedInline.length > 1) return numberedInline;
@@ -273,7 +332,13 @@ const normalizeInstructions = (value: any): Instruction[] => {
       if (typeof item === 'string') {
         return splitInstructionText(item);
       }
-      return splitInstructionText(item?.description || item?.instruction || item?.text || '');
+      const stepText =
+        item?.description ||
+        item?.instruction ||
+        item?.text ||
+        item?.content ||
+        (typeof item?.step === 'string' ? item.step : '');
+      return splitInstructionText(stepText);
     })
     .filter(Boolean)
     .map((description, index) => ({

@@ -60,11 +60,19 @@ const KNOWN_UNITS = new Set([
   'packet', 'packets', 'medium', 'large', 'small',
 ]);
 
+const MIN_COMPLETE_INGREDIENTS = 3;
+const MIN_COMPLETE_INSTRUCTIONS = 2;
+
+const PREP_NOTE_PATTERN = /^(finely\s+)?(chopped|sliced|diced|minced|crushed|grated|peeled|seeded|beaten|washed|drained|cooked|shredded|torn|ground|roasted|toasted)$/i;
+const QUANTITY_START_PATTERN = /^(\d+(?:[./]\d+)?|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\b/i;
+
 const shouldSkipIngredient = (value: string) => {
   const normalized = value.trim().toLowerCase();
   return !normalized
     || normalized.startsWith('special equipment')
     || normalized.startsWith('equipment:')
+    || normalized.startsWith('ingredients:')
+    || normalized === 'ingredients'
     || normalized.startsWith('for serving:')
     || normalized === 'to serve';
 };
@@ -74,26 +82,77 @@ const splitIntoSentences = (value: string): string[] =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+const cleanIngredientText = (value: string) =>
+  value
+    .replace(/^\s*(ingredients?|ingredient list)\s*:\s*/i, '')
+    .replace(/^\s*(?:[-*\u2022]|\d+[\).\-\:])\s*/, '')
+    .trim();
+
+const looksLikeStandaloneIngredient = (value: string) => {
+  const cleaned = cleanIngredientText(value);
+  if (!cleaned || /[.!?]/.test(cleaned)) return false;
+  return cleaned.split(/\s+/).length <= 8;
+};
+
+const splitCommaSeparatedIngredients = (value: string): string[] => {
+  const parts = value
+    .split(/\s*,\s*/)
+    .map(cleanIngredientText)
+    .filter(Boolean);
+
+  if (parts.length < 3) {
+    return [value];
+  }
+
+  const hasQuantityAfterFirst = parts.slice(1).some((part) => QUANTITY_START_PATTERN.test(part));
+  const firstHasQuantity = QUANTITY_START_PATTERN.test(parts[0]);
+  const trailingPartsLookLikeIngredients = parts
+    .slice(1)
+    .every((part) => looksLikeStandaloneIngredient(part.replace(/^or\s+/i, '')));
+  const looksLikeNameList = parts.every(
+    (part) => looksLikeStandaloneIngredient(part) || PREP_NOTE_PATTERN.test(part)
+  );
+
+  if (!hasQuantityAfterFirst && !looksLikeNameList && !(firstHasQuantity && trailingPartsLookLikeIngredients)) {
+    return [value];
+  }
+
+  return parts.reduce<string[]>((acc, part) => {
+    const cleanedPart = part.replace(/^or\s+/i, '');
+    if (PREP_NOTE_PATTERN.test(cleanedPart) && acc.length > 0) {
+      acc[acc.length - 1] = `${acc[acc.length - 1]} ${cleanedPart}`;
+      return acc;
+    }
+
+    acc.push(cleanedPart);
+    return acc;
+  }, []);
+};
+
 const splitIngredientText = (value: string): string[] => {
   const normalized = value.replace(/\r/g, '\n').trim();
   if (!normalized) return [];
 
-  const lines = normalized
+  return normalized
     .split(/\n+/)
+    .flatMap((line) => line.split(/\s+(?=\d+[\).\-\:]\s)/))
     .flatMap((line) => line.split(/\s*[;|]\s*/))
-    .map((line) => line.replace(/^[\-\u2022*]\s*/, '').trim())
+    .flatMap(splitCommaSeparatedIngredients)
+    .map(cleanIngredientText)
     .filter(Boolean)
     .filter((line) => !shouldSkipIngredient(line));
-
-  return lines;
 };
 
 const splitInstructionText = (value: string): string[] => {
-  const normalized = value.replace(/\r/g, '\n').trim();
+  const normalized = value
+    .replace(/\r/g, '\n')
+    .replace(/^\s*(instructions?|method|steps)\s*:\s*/i, '')
+    .trim();
   if (!normalized) return [];
 
   const lineSplit = normalized
     .split(/\n+/)
+    .flatMap((line) => line.split(/\s+(?=(?:step\s*)?\d+[\).\-\:]\s)/i))
     .map((line) => line.replace(/^\s*(step\s*)?\d+[\).\-\:]?\s*/i, '').trim())
     .filter(Boolean);
 
@@ -102,7 +161,7 @@ const splitInstructionText = (value: string): string[] => {
   }
 
   const numberedInline = normalized
-    .split(/\s(?=\d+[\).\-\:]\s)/)
+    .split(/\s+(?=(?:step\s*)?\d+[\).\-\:]\s)/i)
     .map((line) => line.replace(/^\s*(step\s*)?\d+[\).\-\:]?\s*/i, '').trim())
     .filter(Boolean);
 
@@ -127,9 +186,14 @@ const normalizeInstructionsFromApi = (value: any): string[] => {
           return splitInstructionText(step);
         }
 
-        return splitInstructionText(
-          step?.description || step?.instruction || step?.text || ''
-        );
+        const stepText =
+          step?.description ||
+          step?.instruction ||
+          step?.text ||
+          step?.content ||
+          (typeof step?.step === 'string' ? step.step : '');
+
+        return splitInstructionText(stepText);
       })
       .filter(Boolean);
   }
@@ -297,6 +361,197 @@ const calculateScaledCookTime = (
 
 const DEFAULT_PREP_TIME = 10;
 const DEFAULT_COOK_TIME = 20;
+
+const ingredientItem = (name: string, quantity = '', unit = '') => ({
+  name,
+  quantity,
+  unit,
+});
+
+const instructionItem = (description: string, index: number) => ({
+  step: index + 1,
+  description,
+});
+
+const dedupeRecipeIngredients = (items: ReturnType<typeof ingredientItem>[]) => {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = item.name.trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const getDishPrimaryIngredient = (dishTitle: string, sourceIngredient?: string) => {
+  const normalizedSource = sourceIngredient?.trim();
+  if (normalizedSource) return normalizedSource;
+
+  const lower = dishTitle.toLowerCase();
+  if (lower.includes('chicken')) return 'chicken';
+  if (lower.includes('fish')) return 'fish';
+  if (lower.includes('beef')) return 'beef';
+  if (lower.includes('pork')) return 'pork';
+  if (lower.includes('egg')) return 'eggs';
+  if (lower.includes('prawn') || lower.includes('shrimp')) return 'prawns';
+  if (lower.includes('rice')) return 'rice';
+  if (lower.includes('bean')) return 'beans';
+  if (lower.includes('potato')) return 'potatoes';
+
+  return 'main ingredient';
+};
+
+const createRecipeFallback = (
+  dishTitle: string,
+  sourceIngredient?: string,
+  candidate?: Recipe | Record<string, any> | null
+): Recipe => {
+  const title = dishTitle.trim() || candidate?.title || 'Recipe';
+  const lower = title.toLowerCase();
+  const primary = getDishPrimaryIngredient(title, sourceIngredient);
+  let ingredients: ReturnType<typeof ingredientItem>[] = [];
+  let steps: string[] = [];
+  let prepTime = 15;
+  let cookTime = 30;
+
+  if (/kottu|kothu/.test(lower)) {
+    ingredients = [
+      ingredientItem('godamba roti', '4', 'pieces'),
+      ingredientItem('boneless chicken', '500', 'g'),
+      ingredientItem('eggs', '2', ''),
+      ingredientItem('carrot', '1', 'medium'),
+      ingredientItem('cabbage or leeks', '1', 'cup'),
+      ingredientItem('onion', '1', 'medium'),
+      ingredientItem('garlic cloves', '3', ''),
+      ingredientItem('green chili', '2', ''),
+      ingredientItem('curry leaves', '1', 'sprig'),
+      ingredientItem('curry powder', '1', 'tbsp'),
+      ingredientItem('soy sauce', '1', 'tbsp'),
+      ingredientItem('chili flakes', '1', 'tsp'),
+      ingredientItem('oil', '2', 'tbsp'),
+      ingredientItem('salt', '1', 'tsp'),
+    ];
+    steps = [
+      'Cut the godamba roti into small strips and keep it ready.',
+      'Season the chicken with salt, curry powder, and chili flakes.',
+      'Heat oil in a large pan and cook onion, garlic, green chili, and curry leaves until fragrant.',
+      'Add the chicken and cook until it is browned and cooked through.',
+      'Push the chicken aside, scramble the eggs, then add carrot and cabbage or leeks.',
+      'Add the roti strips and soy sauce, then chop and toss everything together until hot.',
+    ];
+    prepTime = 20;
+    cookTime = 25;
+  } else if (/tostada/.test(lower)) {
+    ingredients = [
+      ingredientItem('cooked shredded chicken', '2', 'cups'),
+      ingredientItem('tostada shells', '8', ''),
+      ingredientItem('refried beans', '1', 'cup'),
+      ingredientItem('lettuce', '2', 'cups'),
+      ingredientItem('tomato', '2', 'medium'),
+      ingredientItem('red onion', '1/2', 'cup'),
+      ingredientItem('shredded cheese', '1', 'cup'),
+      ingredientItem('avocado', '1', ''),
+      ingredientItem('lime', '1', ''),
+      ingredientItem('salsa', '1/2', 'cup'),
+      ingredientItem('oil', '1', 'tbsp'),
+      ingredientItem('salt', '1/2', 'tsp'),
+    ];
+    steps = [
+      'Warm the shredded chicken with oil, salt, and a spoon of salsa.',
+      'Heat the tostada shells until crisp.',
+      'Warm the refried beans until spreadable.',
+      'Spread beans on each tostada shell and add chicken.',
+      'Top with lettuce, tomato, onion, cheese, avocado, salsa, and lime juice.',
+    ];
+    prepTime = 15;
+    cookTime = 15;
+  } else if (/pelau|pelau|pilau|pulao|pulao/.test(lower)) {
+    ingredients = [
+      ingredientItem('chicken pieces', '500', 'g'),
+      ingredientItem('rice', '2', 'cups'),
+      ingredientItem('pigeon peas or beans', '1', 'cup'),
+      ingredientItem('coconut milk or chicken stock', '2', 'cups'),
+      ingredientItem('onion', '1', 'medium'),
+      ingredientItem('garlic cloves', '3', ''),
+      ingredientItem('ginger', '1', 'tbsp'),
+      ingredientItem('carrot', '1', 'medium'),
+      ingredientItem('thyme or curry leaves', '1', 'sprig'),
+      ingredientItem('curry powder', '1', 'tbsp'),
+      ingredientItem('green chili', '1', ''),
+      ingredientItem('oil', '2', 'tbsp'),
+      ingredientItem('salt', '1', 'tsp'),
+    ];
+    steps = [
+      'Season the chicken with salt and curry powder.',
+      'Heat oil in a heavy pot and brown the chicken on all sides.',
+      'Add onion, garlic, ginger, chili, and thyme or curry leaves and cook until fragrant.',
+      'Stir in rice, pigeon peas or beans, carrot, and coconut milk or stock.',
+      'Cover and simmer on low heat until the rice is tender and the chicken is cooked through.',
+      'Rest for a few minutes, fluff the rice, and serve hot.',
+    ];
+    prepTime = 30;
+    cookTime = 60;
+  } else if (/curry/.test(lower)) {
+    ingredients = [
+      ingredientItem(primary, '500', 'g'),
+      ingredientItem('onion', '1', 'medium'),
+      ingredientItem('garlic cloves', '3', ''),
+      ingredientItem('ginger', '1', 'tbsp'),
+      ingredientItem('curry leaves', '1', 'sprig'),
+      ingredientItem('curry powder', '1', 'tbsp'),
+      ingredientItem('turmeric', '1/2', 'tsp'),
+      ingredientItem('chili powder', '1', 'tsp'),
+      ingredientItem('coconut milk', '1', 'cup'),
+      ingredientItem('oil', '2', 'tbsp'),
+      ingredientItem('salt', '1', 'tsp'),
+    ];
+    steps = [
+      'Prepare and season the main ingredient with salt, turmeric, chili powder, and curry powder.',
+      'Heat oil and cook onion, garlic, ginger, and curry leaves until fragrant.',
+      'Add the main ingredient and cook until lightly browned.',
+      'Pour in coconut milk and simmer until fully cooked.',
+      'Taste, adjust salt, and serve hot.',
+    ];
+  } else {
+    ingredients = [
+      ingredientItem(primary, primary === 'main ingredient' ? '' : '500', primary === 'main ingredient' ? '' : 'g'),
+      ingredientItem('onion', '1', 'medium'),
+      ingredientItem('garlic cloves', '3', ''),
+      ingredientItem('ginger', '1', 'tbsp'),
+      ingredientItem('green chili', '1', ''),
+      ingredientItem('mixed vegetables', '1', 'cup'),
+      ingredientItem('cooking oil', '2', 'tbsp'),
+      ingredientItem('seasoning spice', '1', 'tbsp'),
+      ingredientItem('salt', '1', 'tsp'),
+      ingredientItem('water or stock', '1', 'cup'),
+    ];
+    steps = [
+      `Prepare all ingredients for ${title}.`,
+      'Heat oil in a pan or pot and cook onion, garlic, ginger, and chili until fragrant.',
+      'Add the main ingredient and cook until it starts to brown.',
+      'Add vegetables, seasoning, salt, and water or stock.',
+      'Cook until everything is tender and the sauce or mixture is balanced.',
+      'Taste, adjust seasoning, and serve hot.',
+    ];
+  }
+
+  return {
+    id: candidate?.id || `generated:${title.toLowerCase().replace(/\s+/g, '-')}`,
+    title,
+    description: candidate?.description || `A complete cooking recipe for ${title}.`,
+    cuisine: candidate?.cuisine || '',
+    category: 'dinner',
+    difficulty: 'medium',
+    prepTime,
+    cookTime,
+    servings: Number(candidate?.servings || 4),
+    ingredients: dedupeRecipeIngredients(ingredients),
+    instructions: steps.map(instructionItem),
+    image: candidate?.image || candidate?.imageUrl,
+    imageUrl: candidate?.imageUrl || candidate?.image,
+    source: candidate?.source || 'generated-fallback',
+  };
+};
 
 const resolveStageTimes = (
   prepCandidate: number,
@@ -476,7 +731,29 @@ const RecipeCustomizationScreen: React.FC<RecipeCustomizationScreenProps> = ({ n
       })
       .filter((item) => item.name && !shouldSkipIngredient(item.name));
 
-  const applyRecipeData = (recipeData?: Recipe) => {
+  const getRecipeIngredientCount = (recipeData?: Recipe | Record<string, any>) => {
+    const rawIngredients = Array.isArray(recipeData?.ingredients)
+      ? recipeData?.ingredients
+      : typeof recipeData?.ingredients === 'string'
+        ? splitIngredientText(recipeData.ingredients)
+        : [];
+
+    return mapIngredientsFromApi(rawIngredients).length;
+  };
+
+  const getRecipeInstructionCount = (recipeData?: Recipe | Record<string, any>) =>
+    normalizeInstructionsFromApi(
+      (recipeData as any)?.instructions || (recipeData as any)?.steps
+    ).length;
+
+  const hasCompleteRecipePayload = (recipeData?: Recipe | Record<string, any>) =>
+    Boolean(
+      recipeData
+      && getRecipeIngredientCount(recipeData) >= MIN_COMPLETE_INGREDIENTS
+      && getRecipeInstructionCount(recipeData) >= MIN_COMPLETE_INSTRUCTIONS
+    );
+
+  const applyRecipeData = (recipeData?: Recipe, markLoaded = true) => {
     if (!recipeData) return;
     if (recipeData.imageUrl || recipeData.image) {
       setRecipeImage(recipeData.imageUrl || recipeData.image);
@@ -486,13 +763,14 @@ const RecipeCustomizationScreen: React.FC<RecipeCustomizationScreenProps> = ({ n
       : typeof (recipeData as any).ingredients === 'string'
         ? splitIngredientText((recipeData as any).ingredients)
         : [];
+    let loadedContent = false;
     if (normalizedIngredients.length > 0) {
       const mappedIngredients = mapIngredientsFromApi(normalizedIngredients);
       const hydratedIngredients = Array.isArray((recipeData as any).localSubstitutions)
         ? applyPrecomputedAdaptations(mappedIngredients, (recipeData as any).localSubstitutions)
         : mappedIngredients;
       setIngredients(hydratedIngredients);
-      setHasLoadedRecipe(true);
+      loadedContent = true;
     }
     if (recipeData.servings) {
       setServingSize(recipeData.servings);
@@ -509,6 +787,13 @@ const RecipeCustomizationScreen: React.FC<RecipeCustomizationScreenProps> = ({ n
       recipeData.instructions || (recipeData as any).steps
     );
     setInstructions(recipeSteps.filter(Boolean));
+    if (recipeSteps.length > 0) {
+      loadedContent = true;
+    }
+
+    if (loadedContent && markLoaded) {
+      setHasLoadedRecipe(true);
+    }
 
     const prep = Number.isFinite(recipeData.prepTime) ? recipeData.prepTime : 0;
     const cook = Number.isFinite(recipeData.cookTime) ? recipeData.cookTime : 0;
@@ -534,13 +819,13 @@ const RecipeCustomizationScreen: React.FC<RecipeCustomizationScreenProps> = ({ n
         .map((item) => getAdaptationLookupName(item))
         .filter(Boolean);
       if (!ingredientNames.length) return false;
-      const uniqueIngredientNames = [...new Set(ingredientNames)].slice(0, 6);
+      const uniqueIngredientNames = [...new Set(ingredientNames)];
 
       setLoadingAdaptations(true);
       const response = await recipeService.getLocalAdaptations({
         dishName,
         ingredients: uniqueIngredientNames,
-        limit: Math.min(uniqueIngredientNames.length, 6),
+        limit: uniqueIngredientNames.length,
       });
       const adaptations = response.data?.adaptations || [];
 
@@ -599,66 +884,95 @@ const RecipeCustomizationScreen: React.FC<RecipeCustomizationScreenProps> = ({ n
     return id.startsWith('ai:') || id.includes(' ') || id.includes('%20');
   };
 
+  const getDishNameForGeneration = () => {
+    const recipeTitle =
+      recipeParam?.title ||
+      (recipeParam as any)?.name ||
+      (recipeParam as any)?.dish;
+    if (recipeTitle) {
+      return String(recipeTitle);
+    }
+
+    if (dishName) {
+      return dishName;
+    }
+
+    if (!dishId) {
+      return '';
+    }
+
+    const raw = dishId.startsWith('ai:') ? dishId.slice(3) : dishId;
+    try {
+      return decodeURIComponent(raw).replace(/\+/g, ' ').trim();
+    } catch {
+      return raw.replace(/\+/g, ' ').trim();
+    }
+  };
+
   useEffect(() => {
-    if (recipeParam) {
+    const shouldTrustPassedRecipe =
+      recipeParam && hasCompleteRecipePayload(recipeParam);
+
+    if (recipeParam && shouldTrustPassedRecipe) {
       applyRecipeData(recipeParam);
     }
 
     const loadRecipe = async () => {
-      if (!dishId) return;
-      const hasPassedIngredients = Array.isArray(recipeParam?.ingredients) && recipeParam.ingredients.length > 0;
-      const hasPassedInstructions =
-        (Array.isArray(recipeParam?.instructions) && recipeParam.instructions.length > 0)
-        || (Array.isArray((recipeParam as any)?.steps) && (recipeParam as any).steps.length > 0);
+      if (shouldTrustPassedRecipe) {
+        return;
+      }
 
-      // If the selected similar recipe already contains usable payload, don't call generate again.
-      if (hasPassedIngredients || hasPassedInstructions) {
+      const dishNameToGenerate = getDishNameForGeneration();
+      if (!dishId && !dishNameToGenerate) {
         return;
       }
       
       setLoadingRecipe(true);
       try {
-        // Check if it's an AI-generated ID that doesn't exist in the database
-        if (isAiGeneratedId(dishId)) {
-          console.log('AI-generated ID detected, generating recipe on-the-fly...');
-          // Try to generate the recipe using AI
-          try {
-            // Decode the dish name from the AI ID if possible
-            let dishNameToGenerate = dishName;
-            try {
-              const encodedPart = dishId.replace('ai:', '');
-              if (encodedPart.includes('%20')) {
-                dishNameToGenerate = decodeURIComponent(encodedPart);
-              }
-            } catch (e) {
-              // Use the original dishName
-            }
+        let loadedRecipe: Recipe | null = null;
 
+        if (dishId && !isAiGeneratedId(dishId)) {
+          // For real database IDs, fetch the full stored recipe.
+          try {
+            const response = await recipeService.getRecipe(dishId);
+            const fetchedRecipe = response.data?.recipe || null;
+            loadedRecipe = fetchedRecipe && (
+              isUserCreatedRecipe(fetchedRecipe) || hasCompleteRecipePayload(fetchedRecipe)
+            )
+              ? fetchedRecipe
+              : null;
+          } catch (fetchError) {
+            console.error('Load recipe by id error:', fetchError);
+          }
+        }
+
+        if (!loadedRecipe && dishNameToGenerate) {
+          try {
             const response = await recipeService.generateRecipeByDish({
               dish: dishNameToGenerate || dishName,
               servings: 4,
             });
             
-            // API returns unwrapped response, so response IS the data object { recipe: Recipe }
-            const generatedRecipe = 
+            const generatedRecipe =
               (response as any)?.data?.recipe || 
               (response as any)?.recipe ||
               (response as any) ||
               null;
-              
-            if (generatedRecipe) {
-              applyRecipeData(generatedRecipe);
-            }
+            loadedRecipe = generatedRecipe && hasCompleteRecipePayload(generatedRecipe)
+              ? generatedRecipe
+              : null;
           } catch (genError) {
             console.error('Generate recipe error:', genError);
-            // Fall back to default ingredients - don't show error to user
           }
-        } else {
-          // For real database IDs, fetch from API
-          const response = await recipeService.getRecipe(dishId);
-          const recipeData = response.data?.recipe;
-          applyRecipeData(recipeData);
         }
+
+        applyRecipeData(
+          loadedRecipe || createRecipeFallback(
+            dishNameToGenerate || dishName,
+            sourceIngredient,
+            loadedRecipe || recipeParam
+          )
+        );
       } catch (error) {
         console.error('Load recipe error:', error);
       } finally {
@@ -667,7 +981,7 @@ const RecipeCustomizationScreen: React.FC<RecipeCustomizationScreenProps> = ({ n
     };
 
     loadRecipe();
-  }, [dishId, recipeParam]);
+  }, [dishId, recipeParam, sourceIngredient]);
 
   useEffect(() => {
     if (!hasLoadedRecipe) return;
@@ -883,6 +1197,11 @@ const RecipeCustomizationScreen: React.FC<RecipeCustomizationScreenProps> = ({ n
 
   const handleDone = () => {
     const selectedIngredients = ingredients.filter(ing => ing.selected);
+    if (ingredients.length > 0 && selectedIngredients.length === 0) {
+      Alert.alert('Select ingredients', 'Please select the ingredients you want to include before cooking.');
+      return;
+    }
+
     const actualPrepTime = calculateElapsedMinutes(prepStartedAtRef.current);
     navigation.navigate('CookingSteps', {
       dishName,
@@ -956,9 +1275,9 @@ const RecipeCustomizationScreen: React.FC<RecipeCustomizationScreenProps> = ({ n
             </View>
             
             <TouchableOpacity
-              style={[styles.servingButton, servingSize === 10 && styles.servingButtonDisabled]}
+              style={[styles.servingButton, servingSize === 20 && styles.servingButtonDisabled]}
               onPress={() => handleServingSizeChange(1)}
-              disabled={servingSize === 10}
+              disabled={servingSize === 20}
             >
               <Text style={styles.servingButtonText}>+</Text>
             </TouchableOpacity>

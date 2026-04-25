@@ -1,5 +1,5 @@
 // src/features/community/screens/CookbookRecipePageScreen.tsx
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -23,6 +24,7 @@ import {
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
+import recipeStore, { FirestoreRecipe } from '../../../services/firebase/recipeStore';
 
 interface CookbookRecipePageScreenProps {
   navigation: any;
@@ -34,70 +36,112 @@ interface CookbookRecipePageScreenProps {
   };
 }
 
+interface CookbookRecipe {
+  id: string;
+  title: string;
+  image?: string;
+  description: string;
+  notes: string[];
+  prepTime: number;
+  cookTime: number;
+  servings: number;
+}
+
+const normalizeCookbookRecipe = (recipe: FirestoreRecipe | any): CookbookRecipe => {
+  const instructions = Array.isArray(recipe?.instructions)
+    ? recipe.instructions
+        .map((item: any) =>
+          typeof item === 'string'
+            ? item
+            : item?.description || item?.instruction || item?.text || ''
+        )
+        .filter(Boolean)
+    : [];
+
+  const ingredients = Array.isArray(recipe?.ingredients)
+    ? recipe.ingredients
+        .map((item: any) =>
+          typeof item === 'string'
+            ? item
+            : [item?.quantity, item?.unit, item?.name || item?.ingredient]
+                .filter(Boolean)
+                .join(' ')
+                .trim()
+        )
+        .filter(Boolean)
+    : [];
+
+  return {
+    id: recipe?.id || recipe?.recipeId || recipe?.title || 'recipe',
+    title: recipe?.title || recipe?.name || 'Cookbook Recipe',
+    image: recipe?.imageUrl || recipe?.image || '',
+    description: recipe?.description || 'A recipe from this community cookbook.',
+    notes: instructions.length ? instructions : ingredients,
+    prepTime: Number(recipe?.prepTime || 0),
+    cookTime: Number(recipe?.cookTime || 0),
+    servings: Number(recipe?.servings || 1),
+  };
+};
+
 const CookbookRecipePageScreen: React.FC<CookbookRecipePageScreenProps> = ({ 
   navigation, 
   route 
 }) => {
   const { cookbook, recipeIndex = 0 } = route.params;
-  
-  // Mock cookbook recipes - In production, this comes from cookbook.recipes
-  const recipes = [
-    {
-      id: '1',
-      title: 'Traditional Chicken Curry',
-      image: 'https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=800',
-      description: 'A rich and aromatic curry that captures the essence of Sri Lankan home cooking. This recipe uses bone-in chicken pieces cooked slowly with roasted curry powder, coconut milk, and a blend of traditional spices.',
-      notes: [
-        'Use bone-in chicken pieces for maximum flavor and tender meat',
-        'Toast the curry powder in a dry pan before adding to enhance the aroma',
-        'Let the curry simmer on low heat - patience is key to developing flavors',
-        'Add pandan leaves if available for an authentic touch',
-      ],
-      prepTime: 45,
-      cookTime: 60,
-      servings: 4,
-    },
-    {
-      id: '2',
-      title: 'Pol Sambol (Coconut Relish)',
-      image: 'https://images.unsplash.com/photo-1596040033229-a0b9ce3f9c41?w=800',
-      description: 'A fiery and flavorful coconut relish that is a staple in every Sri Lankan household. Made with freshly grated coconut, dried chili, and lime juice, this sambol pairs perfectly with rice and curry.',
-      notes: [
-        'Fresh coconut is essential - avoid using desiccated coconut',
-        'Adjust dried chili flakes according to your heat preference',
-        'The sambol should be slightly moist, not dry',
-        'Best consumed fresh on the same day it\'s made',
-      ],
-      prepTime: 15,
-      cookTime: 0,
-      servings: 6,
-    },
-    {
-      id: '3',
-      title: 'Parippu (Red Lentil Curry)',
-      image: 'https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=800',
-      description: 'A creamy and comforting lentil curry that is both nutritious and delicious. This protein-rich dish is finished with a tempered mix of onions, curry leaves, and spices.',
-      notes: [
-        'Soak red lentils for 30 minutes for faster cooking',
-        'Mash some of the cooked lentils for a creamier texture',
-        'Add the tempered spices at the very end to preserve their aroma',
-        'Perfect as a protein-rich side dish with rice',
-      ],
-      prepTime: 10,
-      cookTime: 30,
-      servings: 4,
-    },
-  ];
+  const recipeRefs = useMemo(
+    () => (Array.isArray(cookbook?.recipes) ? cookbook.recipes : []),
+    [cookbook]
+  );
+  const embeddedRecipes = useMemo(
+    () =>
+      recipeRefs
+        .filter((item: any) => item && typeof item === 'object')
+        .map(normalizeCookbookRecipe),
+    [recipeRefs]
+  );
+  const [loadedRecipes, setLoadedRecipes] = useState<CookbookRecipe[]>(embeddedRecipes);
+  const [loadingRecipes, setLoadingRecipes] = useState(false);
 
-  const currentRecipe = recipes[recipeIndex];
-  const isLastRecipe = recipeIndex >= recipes.length - 1;
-  const isFirstRecipe = recipeIndex === 0;
+  useEffect(() => {
+    const recipeIds = recipeRefs.filter(
+      (item: any): item is string => typeof item === 'string' && item.trim().length > 0
+    );
+    if (recipeIds.length === 0) {
+      setLoadedRecipes(embeddedRecipes);
+      return;
+    }
+
+    let isActive = true;
+    setLoadingRecipes(true);
+
+    Promise.all(recipeIds.map((id: string) => recipeStore.getRecipeById(id).catch(() => null)))
+      .then((items) => {
+        if (!isActive) return;
+        const recipesFromStore = items.filter(Boolean).map((item) => normalizeCookbookRecipe(item));
+        setLoadedRecipes([...embeddedRecipes, ...recipesFromStore]);
+      })
+      .finally(() => {
+        if (isActive) {
+          setLoadingRecipes(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [embeddedRecipes, recipeRefs]);
+
+  const recipes = loadedRecipes;
+  const safeRecipeIndex = recipes.length ? Math.min(recipeIndex, recipes.length - 1) : 0;
+  const currentRecipe = recipes[safeRecipeIndex];
+  const isLastRecipe = recipes.length === 0 || safeRecipeIndex >= recipes.length - 1;
+  const isFirstRecipe = safeRecipeIndex === 0;
 
   const handleBack = () => {
-    if (recipeIndex > 0) {
+    if (safeRecipeIndex > 0) {
       navigation.navigate('CookbookRecipePage', {
         cookbook,
-        recipeIndex: recipeIndex - 1,
+        recipeIndex: safeRecipeIndex - 1,
       });
     } else {
       navigation.goBack();
@@ -110,15 +154,17 @@ const CookbookRecipePageScreen: React.FC<CookbookRecipePageScreenProps> = ({
     } else {
       navigation.navigate('CookbookRecipePage', {
         cookbook,
-        recipeIndex: recipeIndex + 1,
+        recipeIndex: safeRecipeIndex + 1,
       });
     }
   };
 
   const handleRecreate = () => {
+    if (!currentRecipe) return;
     navigation.navigate('RecipeCustomization', {
       dishId: currentRecipe.id,
       dishName: currentRecipe.title,
+      recipe: currentRecipe,
       fromCookbook: true,
       cookbookTitle: cookbook.title,
     });
@@ -142,7 +188,7 @@ const CookbookRecipePageScreen: React.FC<CookbookRecipePageScreenProps> = ({
         
         <View style={styles.pageIndicatorContainer}>
           <Text style={styles.pageIndicator}>
-            Recipe {recipeIndex + 1} of {recipes.length}
+            Recipe {recipes.length ? safeRecipeIndex + 1 : 0} of {recipes.length}
           </Text>
         </View>
 
@@ -154,6 +200,19 @@ const CookbookRecipePageScreen: React.FC<CookbookRecipePageScreenProps> = ({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        {loadingRecipes && !currentRecipe ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.pastelOrange.main} />
+            <Text style={styles.loadingText}>Loading cookbook recipes...</Text>
+          </View>
+        ) : !currentRecipe ? (
+          <View style={styles.content}>
+            <Text style={styles.recipeTitle}>No Recipes Available</Text>
+            <Text style={styles.recipeDescription}>
+              This cookbook does not have readable recipes attached yet.
+            </Text>
+          </View>
+        ) : (
         <View style={styles.content}>
           {/* Recipe Title */}
           <Text style={styles.recipeTitle}>{currentRecipe.title}</Text>
@@ -176,7 +235,11 @@ const CookbookRecipePageScreen: React.FC<CookbookRecipePageScreenProps> = ({
 
           {/* Recipe Image */}
           <Image
-            source={{ uri: currentRecipe.image }}
+            source={
+              currentRecipe.image
+                ? { uri: currentRecipe.image }
+                : require('../../../assets/icon.png')
+            }
             style={styles.recipeImage}
             resizeMode="cover"
           />
@@ -196,7 +259,7 @@ const CookbookRecipePageScreen: React.FC<CookbookRecipePageScreenProps> = ({
               <Text style={styles.notesTitle}>Key Notes for Success</Text>
             </View>
             
-            {currentRecipe.notes.map((note, index) => (
+            {(currentRecipe.notes.length ? currentRecipe.notes : ['No steps were added for this recipe yet.']).map((note, index) => (
               <View key={index} style={styles.noteItem}>
                 <View style={styles.noteNumberBadge}>
                   <Text style={styles.noteNumber}>{index + 1}</Text>
@@ -231,12 +294,13 @@ const CookbookRecipePageScreen: React.FC<CookbookRecipePageScreenProps> = ({
               <View style={styles.navigationHintRow}>
                 <BookOpen size={scaleFontSize(18)} color={COLORS.text.secondary} strokeWidth={2} />
                 <Text style={styles.navigationHintText}>
-                  {recipes.length - recipeIndex - 1} more {recipes.length - recipeIndex - 1 === 1 ? 'recipe' : 'recipes'} to discover!
+                  {recipes.length - safeRecipeIndex - 1} more {recipes.length - safeRecipeIndex - 1 === 1 ? 'recipe' : 'recipes'} to discover!
                 </Text>
               </View>
             )}
           </View>
         </View>
+        )}
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -246,6 +310,7 @@ const CookbookRecipePageScreen: React.FC<CookbookRecipePageScreenProps> = ({
         <TouchableOpacity 
           style={styles.secondaryButton}
           onPress={handleRecreate}
+          disabled={!currentRecipe}
           activeOpacity={0.7}
         >
           <ChefHat size={scaleFontSize(18)} color={COLORS.text.primary} strokeWidth={2} style={styles.secondaryButtonIcon} />
@@ -319,6 +384,15 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: moderateScale(SPACING.base),
+  },
+  loadingContainer: {
+    padding: moderateScale(SPACING['2xl']),
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: moderateScale(SPACING.md),
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.base),
+    color: COLORS.text.secondary,
   },
   recipeTitle: {
     fontSize: scaleFontSize(TYPOGRAPHY.fontSize['3xl']),

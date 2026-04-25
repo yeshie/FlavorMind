@@ -1,5 +1,5 @@
 // src/features/adaptation/screens/AddRecipeScreen.tsx
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -21,24 +21,69 @@ import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import Button from '../../../common/components/Button/button';
 import recipeService from '../../../services/api/recipe.service';
 import { getFirebaseUser } from '../../../services/firebase/authService';
-import recipeStore from '../../../services/firebase/recipeStore';
+import recipeStore, { PublishStatus } from '../../../services/firebase/recipeStore';
 
 interface AddRecipeScreenProps {
   navigation: any;
+  route?: {
+    params?: {
+      recipe?: any;
+      isEdit?: boolean;
+    };
+  };
 }
 
-const AddRecipeScreen: React.FC<AddRecipeScreenProps> = ({ navigation }) => {
+const formatIngredientLine = (item: any) => {
+  if (typeof item === 'string') return item;
+  const quantity = item?.quantity ?? item?.qty ?? item?.amount ?? '';
+  const unit = item?.unit ?? '';
+  const name = item?.name || item?.title || item?.ingredient || '';
+  return [quantity, unit, name].filter(Boolean).join(' ').trim();
+};
+
+const formatInstructionLine = (item: any, index: number) => {
+  if (typeof item === 'string') return item.replace(/^\d+\.\s*/, '');
+  return item?.description || item?.instruction || item?.text || `Step ${index + 1}`;
+};
+
+const AddRecipeScreen: React.FC<AddRecipeScreenProps> = ({ navigation, route }) => {
+  const editingRecipe = route?.params?.recipe;
+  const isEditMode = Boolean(route?.params?.isEdit && editingRecipe?.id);
   const [dishName, setDishName] = useState('');
   const [ingredients, setIngredients] = useState('');
   const [alternatives, setAlternatives] = useState('');
   const [servingSize, setServingSize] = useState('');
   const [instructions, setInstructions] = useState('');
+  const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [pickedImage, setPickedImage] = useState<{
     uri: string;
     name: string;
     type: string;
   } | null>(null);
+
+  useEffect(() => {
+    if (!isEditMode || !editingRecipe) return;
+
+    setDishName(editingRecipe.title || editingRecipe.name || '');
+    setIngredients(
+      Array.isArray(editingRecipe.ingredients)
+        ? editingRecipe.ingredients.map(formatIngredientLine).filter(Boolean).join('\n')
+        : ''
+    );
+    setAlternatives(editingRecipe.description || '');
+    setServingSize(editingRecipe.servings ? String(editingRecipe.servings) : '');
+    setInstructions(
+      Array.isArray(editingRecipe.instructions)
+        ? editingRecipe.instructions
+            .map((item: any, index: number) => formatInstructionLine(item, index))
+            .filter(Boolean)
+            .map((item: string, index: number) => `${index + 1}. ${item}`)
+            .join('\n')
+        : ''
+    );
+    setExistingImageUrl(editingRecipe.imageUrl || editingRecipe.image || null);
+  }, [editingRecipe, isEditMode]);
 
   const parsedIngredients = useMemo(() => {
     return ingredients
@@ -65,20 +110,38 @@ const AddRecipeScreen: React.FC<AddRecipeScreenProps> = ({ navigation }) => {
 
   const handleDelete = () => {
     Alert.alert(
-      'Delete Recipe',
-      'Are you sure you want to delete this recipe?',
+      isEditMode ? 'Delete Recipe' : 'Clear Recipe',
+      isEditMode
+        ? 'Are you sure you want to delete this recipe?'
+        : 'Are you sure you want to clear this recipe form?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
+            if (isEditMode && editingRecipe?.id) {
+              recipeStore
+                .deleteRecipe(editingRecipe.id)
+                .then(() => {
+                  Alert.alert('Deleted', 'Recipe has been deleted');
+                  navigation.goBack();
+                })
+                .catch((error) => {
+                  console.error('Delete recipe error:', error);
+                  Alert.alert('Error', 'Could not delete recipe right now.');
+                });
+              return;
+            }
+
             setDishName('');
             setIngredients('');
             setAlternatives('');
             setServingSize('');
             setInstructions('');
-            Alert.alert('Deleted', 'Recipe has been cleared');
+            setExistingImageUrl(null);
+            setPickedImage(null);
+            Alert.alert('Cleared', 'Recipe form has been cleared');
           },
         },
       ]
@@ -136,7 +199,16 @@ const AddRecipeScreen: React.FC<AddRecipeScreenProps> = ({ navigation }) => {
         imageUrl = upload.data?.imageUrl;
       }
 
-      await recipeStore.createRecipe({
+      const currentStatus = (editingRecipe?.publishStatus || editingRecipe?.status || 'draft') as PublishStatus;
+      const targetStatus: PublishStatus = publish
+        ? 'pending'
+        : isEditMode
+          ? currentStatus === 'approved'
+            ? 'pending'
+            : currentStatus
+          : 'draft';
+
+      const recipePayload = {
         title: dishName.trim(),
         description: alternatives.trim() || 'User-submitted recipe',
         cuisine: 'Sri Lankan',
@@ -147,18 +219,27 @@ const AddRecipeScreen: React.FC<AddRecipeScreenProps> = ({ navigation }) => {
         servings: Number(servingSize) || 1,
         ingredients: parsedIngredients,
         instructions: parsedInstructions,
-        imageUrl: imageUrl || null,
+        imageUrl: imageUrl || existingImageUrl || null,
         ownerId: user.uid,
         ownerName: user.displayName || undefined,
         ownerPhotoUrl: user.photoURL || undefined,
-        publishStatus: publish ? 'pending' : 'draft',
-        source: 'user',
-      });
+        publishStatus: targetStatus,
+        source: 'user' as const,
+      };
+
+      if (isEditMode && editingRecipe?.id) {
+        await recipeStore.updateRecipe(editingRecipe.id, recipePayload);
+      } else {
+        await recipeStore.createRecipe(recipePayload);
+      }
+
       Alert.alert(
         'Success',
-        publish
+        publish || targetStatus === 'pending'
           ? 'Recipe submitted for approval! It will appear once approved.'
-          : 'Recipe saved to your drafts!'
+          : isEditMode
+            ? 'Recipe updated!'
+            : 'Recipe saved to your drafts!'
       );
       navigation.goBack();
     } catch (error) {
@@ -206,7 +287,9 @@ const AddRecipeScreen: React.FC<AddRecipeScreenProps> = ({ navigation }) => {
               <Text style={styles.backButtonText}>Back</Text>
             </View>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Add Your Own Recipe</Text>
+          <Text style={styles.headerTitle}>
+            {isEditMode ? 'Edit Your Recipe' : 'Add Your Own Recipe'}
+          </Text>
         </View>
 
         <ScrollView
@@ -290,6 +373,13 @@ const AddRecipeScreen: React.FC<AddRecipeScreenProps> = ({ navigation }) => {
                 resizeMode="cover"
               />
             )}
+            {!pickedImage && existingImageUrl && (
+              <Image
+                source={{ uri: existingImageUrl }}
+                style={styles.previewImage}
+                resizeMode="cover"
+              />
+            )}
 
             {/* Instructions */}
             <View style={styles.inputGroup}>
@@ -317,7 +407,7 @@ const AddRecipeScreen: React.FC<AddRecipeScreenProps> = ({ navigation }) => {
             onPress={handleDelete}
           >
             <Trash2 size={scaleFontSize(18)} color={COLORS.status.error} strokeWidth={2} style={styles.actionIcon} />
-            <Text style={styles.actionText}>Delete</Text>
+            <Text style={styles.actionText}>{isEditMode ? 'Delete' : 'Clear'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -333,14 +423,18 @@ const AddRecipeScreen: React.FC<AddRecipeScreenProps> = ({ navigation }) => {
             onPress={handleSaveAndPublish}
           >
             <Globe size={scaleFontSize(18)} color={COLORS.text.white} strokeWidth={2} style={styles.actionIcon} />
-            <Text style={[styles.actionText, styles.publishText]}>Save & Publish</Text>
+            <Text style={[styles.actionText, styles.publishText]}>
+              {isEditMode ? 'Update & Publish' : 'Save & Publish'}
+            </Text>
           </TouchableOpacity>
         </View>
 
         {saving && (
           <View style={styles.savingOverlay}>
             <ActivityIndicator size="large" color={COLORS.pastelOrange.main} />
-            <Text style={styles.savingText}>Saving recipe...</Text>
+            <Text style={styles.savingText}>
+              {isEditMode ? 'Updating recipe...' : 'Saving recipe...'}
+            </Text>
           </View>
         )}
       </KeyboardAvoidingView>

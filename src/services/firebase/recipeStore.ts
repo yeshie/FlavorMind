@@ -83,6 +83,8 @@ export interface CreateRecipeInput {
   instructions?: Array<{ step: number; description: string }>;
 }
 
+export type UpdateRecipeInput = Partial<Omit<CreateRecipeInput, 'ownerId'>>;
+
 export interface SaveRecipeInput {
   id?: string;
   recipeId?: string;
@@ -203,6 +205,7 @@ const recipeStore = {
     const payload = {
       ...input,
       publishStatus: input.publishStatus,
+      approvalStatus: input.publishStatus,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
@@ -294,6 +297,28 @@ const recipeStore = {
     const recipeRef = doc(firestore, 'recipes', recipeId);
     await updateDoc(recipeRef, {
       publishStatus,
+      approvalStatus: publishStatus,
+      updatedAt: serverTimestamp(),
+    });
+  },
+
+  async updateRecipe(recipeId: string, input: UpdateRecipeInput): Promise<void> {
+    const firestore = requireDb();
+    const recipeRef = doc(firestore, 'recipes', recipeId);
+    const payload: Record<string, unknown> = {};
+
+    Object.entries(input).forEach(([key, value]) => {
+      if (typeof value !== 'undefined') {
+        payload[key] = value;
+      }
+    });
+
+    if (input.publishStatus) {
+      payload.approvalStatus = input.publishStatus;
+    }
+
+    await updateDoc(recipeRef, {
+      ...payload,
       updatedAt: serverTimestamp(),
     });
   },

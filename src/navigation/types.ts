@@ -82,7 +82,7 @@ export type RootStackParamList = {
     cookbook: any;
   };
   CookbookIntroduction: {
-    cookbookId: string;
+    cookbook: any;
   };
   CookbookRecipePage: {
     cookbook: any;

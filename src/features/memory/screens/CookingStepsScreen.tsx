@@ -1,5 +1,5 @@
 // src/features/memory/screens/CookingStepsScreen.tsx
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -47,6 +47,78 @@ interface CookingStep {
   completed: boolean;
 }
 
+const splitInstructionText = (value: string): string[] => {
+  const normalized = value
+    .replace(/\r/g, '\n')
+    .replace(/^\s*(instructions?|method|steps)\s*:\s*/i, '')
+    .trim();
+  if (!normalized) return [];
+
+  const numberedOrLines = normalized
+    .split(/\n+|\s+(?=(?:step\s*)?\d+[\).\-\:]\s)/i)
+    .map((item) => item.replace(/^\s*(step\s*)?\d+[\).\-\:]?\s*/i, '').trim())
+    .filter(Boolean);
+
+  if (numberedOrLines.length > 1) {
+    return numberedOrLines;
+  }
+
+  return (normalized.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [])
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
+const normalizeInstructionItems = (value: any = []): string[] => {
+  const items = Array.isArray(value) ? value : typeof value === 'string' ? [value] : [];
+
+  return items
+    .flatMap((item: any) => {
+      if (typeof item === 'string') {
+        return splitInstructionText(item);
+      }
+
+      const instructionText =
+        item?.description ||
+        item?.instruction ||
+        item?.text ||
+        item?.content ||
+        (typeof item?.step === 'string' ? item.step : '');
+
+      return splitInstructionText(instructionText);
+    })
+    .filter(Boolean);
+};
+
+const formatIngredientLine = (item: any) => {
+  if (typeof item === 'string') return item.trim();
+
+  const quantity = item?.quantity ?? item?.qty ?? item?.amount ?? '';
+  const unit = item?.unit || '';
+  const name = item?.name || item?.ingredient || item?.title || '';
+
+  return [quantity, unit, name]
+    .filter((part) => `${part}`.trim().length > 0)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+const buildFallbackSteps = (dishName: string, ingredientNames: string[]): CookingStep[] => {
+  const ingredientText = ingredientNames.slice(0, 5).join(', ');
+  const steps = [
+    `Prepare ${ingredientText || 'the ingredients'} for ${dishName}.`,
+    `Cook ${dishName} over steady heat, adding the prepared ingredients in the recipe order.`,
+    'Taste, adjust seasoning, and serve when the dish is cooked through.',
+  ];
+
+  return steps.map((instruction, index) => ({
+    id: `fallback-${index}`,
+    stepNumber: index + 1,
+    instruction,
+    completed: false,
+  }));
+};
+
 const CookingStepsScreen: React.FC<CookingStepsScreenProps> = ({ navigation, route }) => {
   const {
     dishName,
@@ -63,67 +135,28 @@ const CookingStepsScreen: React.FC<CookingStepsScreenProps> = ({ navigation, rou
     feedbackTarget,
   } = route.params;
 
-  const mockSteps: CookingStep[] = [
-    {
-      id: '1',
-      stepNumber: 1,
-      instruction: 'Clean and cut the fish into medium-sized pieces. Remove any bones carefully.',
-      duration: 5,
-      completed: false,
-    },
-    {
-      id: '2',
-      stepNumber: 2,
-      instruction: 'Heat oil in a clay pot or deep pan. Add sliced onions and curry leaves. Saute until onions are golden brown.',
-      duration: 8,
-      completed: false,
-    },
-    {
-      id: '3',
-      stepNumber: 3,
-      instruction: 'Add curry powder, turmeric, chili powder, and fenugreek. Mix well and cook for 2 minutes until fragrant.',
-      duration: 3,
-      completed: false,
-    },
-    {
-      id: '4',
-      stepNumber: 4,
-      instruction: 'Add goraka pieces and green chilies. Pour in thin coconut milk and bring to a gentle boil.',
-      duration: 5,
-      completed: false,
-    },
-    {
-      id: '5',
-      stepNumber: 5,
-      instruction: 'Carefully add the fish pieces. Cover and cook on medium heat without stirring too much.',
-      duration: 10,
-      completed: false,
-    },
-    {
-      id: '6',
-      stepNumber: 6,
-      instruction: 'Add thick coconut milk and salt. Simmer gently until the curry thickens and fish is fully cooked.',
-      duration: 15,
-      completed: false,
-    },
-    {
-      id: '7',
-      stepNumber: 7,
-      instruction: 'Turn off heat and let it rest for 5 minutes. Garnish with fresh curry leaves.',
-      duration: 5,
-      completed: false,
-    },
-  ];
+  const cookingIngredients = useMemo(
+    () => (Array.isArray(ingredients) ? ingredients : []),
+    [ingredients]
+  );
+  const ingredientLines = useMemo(
+    () => cookingIngredients.map(formatIngredientLine).filter(Boolean),
+    [cookingIngredients]
+  );
+  const normalizedInstructions = useMemo(
+    () => normalizeInstructionItems(instructions),
+    [instructions]
+  );
 
   const initialSteps: CookingStep[] =
-    instructions.length > 0
-      ? instructions.map((instruction, index) => ({
+    normalizedInstructions.length > 0
+      ? normalizedInstructions.map((instruction, index) => ({
           id: `${index}`,
           stepNumber: index + 1,
           instruction,
           completed: false,
         }))
-      : mockSteps;
+      : buildFallbackSteps(dishName, ingredientLines);
 
   const [steps, setSteps] = useState<CookingStep[]>(initialSteps);
   const [finishing, setFinishing] = useState(false);
@@ -147,7 +180,7 @@ const CookingStepsScreen: React.FC<CookingStepsScreenProps> = ({ navigation, rou
       ? Math.round(actualPrepTime)
       : suggestedPrepStageMinutes;
   const completedSteps = steps.filter(s => s.completed).length;
-  const progress = (completedSteps / steps.length) * 100;
+  const progress = steps.length > 0 ? (completedSteps / steps.length) * 100 : 0;
 
   const toggleStepCompletion = (stepId: string) => {
     setSteps(steps.map(step =>
@@ -193,7 +226,7 @@ const CookingStepsScreen: React.FC<CookingStepsScreenProps> = ({ navigation, rou
         actionType: 'cook',
         recipeId: feedbackRecipeId || recipeId,
         recipeTitle: dishName,
-        ingredients: ingredients.map((item) => item?.name).filter(Boolean),
+        ingredients: ingredientLines,
       }),
     ];
 
@@ -308,6 +341,20 @@ const CookingStepsScreen: React.FC<CookingStepsScreenProps> = ({ navigation, rou
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
+        {ingredientLines.length > 0 && (
+          <View style={styles.ingredientsContainer}>
+            <Text style={styles.sectionTitle}>Ingredients</Text>
+            {ingredientLines.map((line, index) => (
+              <View key={`${line}-${index}`} style={styles.ingredientRow}>
+                <View style={styles.ingredientBullet}>
+                  <Text style={styles.ingredientBulletText}>{index + 1}</Text>
+                </View>
+                <Text style={styles.ingredientText}>{line}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Cooking Steps */}
         <View style={styles.stepsContainer}>
           {steps.map((step) => (
@@ -475,6 +522,45 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  ingredientsContainer: {
+    backgroundColor: COLORS.background.white,
+    marginHorizontal: moderateScale(SPACING.base),
+    marginTop: moderateScale(SPACING.lg),
+    padding: moderateScale(SPACING.lg),
+    borderRadius: BORDER_RADIUS.lg,
+    ...SHADOWS.small,
+  },
+  sectionTitle: {
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.lg),
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: COLORS.text.primary,
+    marginBottom: moderateScale(SPACING.md),
+  },
+  ingredientRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: moderateScale(SPACING.sm),
+  },
+  ingredientBullet: {
+    width: moderateScale(24),
+    height: moderateScale(24),
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: COLORS.pastelOrange.light,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: moderateScale(SPACING.sm),
+  },
+  ingredientBulletText: {
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.xs),
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: COLORS.pastelOrange.dark,
+  },
+  ingredientText: {
+    flex: 1,
+    fontSize: scaleFontSize(TYPOGRAPHY.fontSize.sm),
+    color: COLORS.text.primary,
+    lineHeight: TYPOGRAPHY.lineHeight.relaxed * scaleFontSize(TYPOGRAPHY.fontSize.sm),
   },
   stepsContainer: {
     paddingHorizontal: moderateScale(SPACING.base),

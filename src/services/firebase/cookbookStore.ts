@@ -6,6 +6,7 @@ import {
   doc,
   getDocs,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -36,6 +37,7 @@ export interface FirestoreCookbook {
   recipes?: string[];
   recipesCount?: number;
   publishStatus?: CookbookPublishStatus;
+  approvalStatus?: CookbookPublishStatus;
   source?: CookbookSource;
   externalId?: string;
   ratingAverage?: number;
@@ -143,6 +145,7 @@ const cookbookStore = {
     const payload = {
       ...input,
       publishStatus: input.publishStatus || 'pending',
+      approvalStatus: input.publishStatus || 'pending',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
@@ -159,6 +162,14 @@ const cookbookStore = {
     return cookbooks.sort((a, b) => toSortableTime(b.createdAt) - toSortableTime(a.createdAt));
   },
 
+  async getApprovedCookbooks(): Promise<FirestoreCookbook[]> {
+    const firestore = requireDb();
+    const cookbooksRef = collection(firestore, 'cookbooks');
+    const snapshot = await getDocs(query(cookbooksRef, where('publishStatus', '==', 'approved')));
+    const cookbooks = snapshot.docs.map(mapCookbookDoc);
+    return cookbooks.sort((a, b) => toSortableTime(b.createdAt) - toSortableTime(a.createdAt));
+  },
+
   async updateCookbookPublishStatus(
     cookbookId: string,
     publishStatus: CookbookPublishStatus
@@ -167,7 +178,55 @@ const cookbookStore = {
     const cookbookRef = doc(firestore, 'cookbooks', cookbookId);
     await updateDoc(cookbookRef, {
       publishStatus,
+      approvalStatus: publishStatus,
       updatedAt: serverTimestamp(),
+    });
+  },
+
+  async rateCookbook(cookbookId: string, userId: string, rating: number): Promise<void> {
+    const firestore = requireDb();
+    const safeRating = Math.max(1, Math.min(5, Math.round(rating)));
+    const cookbookRef = doc(firestore, 'cookbooks', cookbookId);
+    const ratingRef = doc(firestore, 'cookbooks', cookbookId, 'ratings', userId);
+
+    await runTransaction(firestore, async (transaction) => {
+      const [cookbookSnap, ratingSnap] = await Promise.all([
+        transaction.get(cookbookRef),
+        transaction.get(ratingRef),
+      ]);
+
+      if (!cookbookSnap.exists()) {
+        throw new Error('Cookbook not found');
+      }
+
+      const cookbookData = cookbookSnap.data() as FirestoreCookbook;
+      const previousRating = ratingSnap.exists()
+        ? Number((ratingSnap.data() as { rating?: number }).rating || 0)
+        : 0;
+      const currentCount = Number(cookbookData.ratingCount || 0);
+      const currentAverage = Number(cookbookData.ratingAverage || 0);
+      const previousTotal = currentAverage * currentCount;
+      const nextCount = previousRating > 0 ? currentCount : currentCount + 1;
+      const nextTotal = previousRating > 0
+        ? previousTotal - previousRating + safeRating
+        : previousTotal + safeRating;
+      const nextAverage = nextCount > 0 ? Math.round((nextTotal / nextCount) * 10) / 10 : safeRating;
+
+      transaction.set(
+        ratingRef,
+        {
+          userId,
+          rating: safeRating,
+          updatedAt: serverTimestamp(),
+          createdAt: ratingSnap.exists() ? ratingSnap.data()?.createdAt || serverTimestamp() : serverTimestamp(),
+        },
+        { merge: true }
+      );
+      transaction.update(cookbookRef, {
+        ratingAverage: nextAverage,
+        ratingCount: nextCount,
+        updatedAt: serverTimestamp(),
+      });
     });
   },
 

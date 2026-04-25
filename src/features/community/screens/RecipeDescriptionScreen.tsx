@@ -52,6 +52,9 @@ interface RecipeDescriptionScreenProps {
   };
 }
 
+const MIN_DETAIL_INGREDIENTS = 3;
+const MIN_DETAIL_INSTRUCTIONS = 2;
+
 const RecipeDescriptionScreen: React.FC<RecipeDescriptionScreenProps> = ({ 
   navigation, 
   route 
@@ -134,13 +137,27 @@ const RecipeDescriptionScreen: React.FC<RecipeDescriptionScreenProps> = ({
       )
     );
 
+  const countRecipeItems = (value: unknown) => {
+    if (Array.isArray(value)) return value.length;
+    if (typeof value === 'string') {
+      return value
+        .replace(/\r/g, '\n')
+        .split(/\n+|[;|]/)
+        .map((item) => item.trim())
+        .filter(Boolean).length;
+    }
+    return 0;
+  };
+
   const hasDetailedRecipePayload = (value?: Record<string, any> | null) =>
     Boolean(
       value
       && (
-        (typeof value.description === 'string' && value.description.trim().length > 0)
-        || (Array.isArray(value.ingredients) && value.ingredients.length > 0)
-        || (Array.isArray(value.instructions) && value.instructions.length > 0)
+        isUserCreatedRecipe(value)
+        || (
+          countRecipeItems(value.ingredients) >= MIN_DETAIL_INGREDIENTS
+          && countRecipeItems(value.instructions || value.steps) >= MIN_DETAIL_INSTRUCTIONS
+        )
       )
     );
 

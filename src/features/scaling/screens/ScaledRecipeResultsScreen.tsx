@@ -36,6 +36,7 @@ interface ScaledRecipe {
   prepTime: number;
   difficulty: string;
   matchScore: number;
+  recipe: Recipe;
 }
 
 const ScaledRecipeResultsScreen: React.FC<ScaledRecipeResultsScreenProps> = ({ 
@@ -75,6 +76,7 @@ const ScaledRecipeResultsScreen: React.FC<ScaledRecipeResultsScreenProps> = ({
           prepTime: recipe.prepTime || recipe.cookTime || 0,
           difficulty: recipe.difficulty || 'medium',
           matchScore: recipe.matchScore || 85,
+          recipe,
         }));
 
         setScaledRecipes(mapped);
@@ -90,9 +92,14 @@ const ScaledRecipeResultsScreen: React.FC<ScaledRecipeResultsScreenProps> = ({
   }, [scalingQuery]);
 
   const handleRecipeSelect = (recipe: ScaledRecipe) => {
+    const hasUsablePayload =
+      Array.isArray(recipe.recipe?.ingredients) && recipe.recipe.ingredients.length > 0;
+
     navigation.navigate('RecipeCustomization', {
-      dishId: recipe.id,
+      dishId: hasUsablePayload ? undefined : recipe.id,
       dishName: recipe.name,
+      dishImage: recipe.image,
+      recipe: recipe.recipe,
       scalingQuery: scalingQuery,
       isScaled: true,
     });

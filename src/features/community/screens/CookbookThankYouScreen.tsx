@@ -34,12 +34,16 @@ const CookbookThankYouScreen: React.FC<CookbookThankYouScreenProps> = ({
   const { cookbook } = route.params;
   const [rating, setRating] = useState(0);
   const [savingLibrary, setSavingLibrary] = useState(false);
+  const [submittingRating, setSubmittingRating] = useState(false);
+  const author = cookbook.author || cookbook.authorName || 'Community Chef';
+  const coverImage = cookbook.coverImage || cookbook.coverImageUrl || '';
+  const recipesCount = cookbook.recipesCount || cookbook.recipes?.length || 0;
 
   const handleRate = (stars: number) => {
     setRating(stars);
   };
 
-  const handleGiveFeedback = () => {
+  const handleGiveFeedback = async () => {
     if (rating === 0) {
       Alert.alert(
         'Rating Required',
@@ -49,17 +53,33 @@ const CookbookThankYouScreen: React.FC<CookbookThankYouScreenProps> = ({
       return;
     }
 
-    // Navigate to detailed feedback page or show success
-    Alert.alert(
-      'Thank You!',
-      'Your rating has been submitted. We appreciate your feedback!',
-      [
-        {
-          text: 'OK',
-          onPress: () => handleGoHome(),
-        },
-      ]
-    );
+    if (submittingRating) return;
+
+    setSubmittingRating(true);
+    try {
+      const user = getFirebaseUser();
+      if (!user) {
+        Alert.alert('Login Required', 'Please sign in to rate cookbooks.');
+        return;
+      }
+
+      await cookbookStore.rateCookbook(cookbook.id, user.uid, rating);
+      Alert.alert(
+        'Thank You!',
+        'Your rating has been submitted. We appreciate your feedback!',
+        [
+          {
+            text: 'OK',
+            onPress: () => handleGoHome(),
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Cookbook rating error:', error);
+      Alert.alert('Error', 'Could not submit your rating right now.');
+    } finally {
+      setSubmittingRating(false);
+    }
   };
 
   const handleGoHome = () => {
@@ -73,15 +93,15 @@ const CookbookThankYouScreen: React.FC<CookbookThankYouScreenProps> = ({
     try {
       const shareMessage = [
         `Check out "${cookbook.title}" on FlavorMind.`,
-        cookbook.author ? `Created by ${cookbook.author}.` : '',
-        cookbook.recipesCount ? `${cookbook.recipesCount} recipes included.` : '',
+        author ? `Created by ${author}.` : '',
+        recipesCount ? `${recipesCount} recipes included.` : '',
       ]
         .filter(Boolean)
         .join(' ');
 
       await Share.share({
         message: shareMessage,
-        url: cookbook.coverImage || cookbook.coverImageUrl || undefined,
+        url: coverImage || undefined,
       });
     } catch (error) {
       console.error('Cookbook share error:', error);
@@ -101,12 +121,13 @@ const CookbookThankYouScreen: React.FC<CookbookThankYouScreenProps> = ({
 
       await cookbookStore.saveCookbookToLibrary(user.uid, {
         externalId: cookbook.id,
+        cookbookId: cookbook.id,
         source: 'community',
         title: cookbook.title,
-        coverImageUrl: cookbook.coverImage,
-        author: cookbook.author,
-        rating: cookbook.rating,
-        recipesCount: cookbook.recipesCount,
+        coverImageUrl: coverImage,
+        author,
+        rating: cookbook.rating || cookbook.ratingAverage || 0,
+        recipesCount,
       });
 
       Alert.alert('Saved!', 'Cookbook added to your library');
@@ -151,13 +172,13 @@ const CookbookThankYouScreen: React.FC<CookbookThankYouScreenProps> = ({
           {/* Stats Summary */}
           <View style={styles.statsCard}>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{cookbook.recipesCount}</Text>
+              <Text style={styles.statNumber}>{recipesCount}</Text>
               <Text style={styles.statLabel}>Recipes Explored</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>100+</Text>
-              <Text style={styles.statLabel}>Tips Learned</Text>
+              <Text style={styles.statNumber}>{rating || '--'}</Text>
+              <Text style={styles.statLabel}>Your Rating</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
@@ -210,13 +231,12 @@ const CookbookThankYouScreen: React.FC<CookbookThankYouScreenProps> = ({
             </View>
 
             <Text style={styles.authorMessage}>
-              "Thank you for joining me on this culinary journey. I hope these recipes 
-              bring joy to your kitchen and smiles to your table! Remember, cooking is 
-              not just about following recipes--it's about creating memories."
+              {cookbook.thankYouMessage
+                || 'Thank you for joining this culinary journey. I hope these recipes bring joy to your kitchen and smiles to your table.'}
             </Text>
 
             <View style={styles.authorSignature}>
-              <Text style={styles.authorName}>- {cookbook.author}</Text>
+              <Text style={styles.authorName}>- {author}</Text>
               <Text style={styles.authorTitle}>Recipe Creator & Food Enthusiast</Text>
             </View>
           </View>
@@ -226,7 +246,7 @@ const CookbookThankYouScreen: React.FC<CookbookThankYouScreenProps> = ({
             <Trophy size={scaleFontSize(56)} color={COLORS.pastelGreen.dark} strokeWidth={2} style={styles.achievementIcon} />
             <Text style={styles.achievementTitle}>Cookbook Complete!</Text>
             <Text style={styles.achievementText}>
-              You've finished reading all {cookbook.recipesCount} recipes. 
+              You've finished reading all {recipesCount} recipes. 
               Ready to start cooking?
             </Text>
           </View>
@@ -238,6 +258,7 @@ const CookbookThankYouScreen: React.FC<CookbookThankYouScreenProps> = ({
               size="large"
               fullWidth
               onPress={handleGiveFeedback}
+              disabled={submittingRating}
               style={styles.feedbackButton}
             >
               Give Feedback
@@ -287,7 +308,7 @@ const CookbookThankYouScreen: React.FC<CookbookThankYouScreenProps> = ({
           <View style={styles.exploreCard}>
             <Text style={styles.exploreTitle}>Want to Explore More?</Text>
             <Text style={styles.exploreText}>
-              Check out other cookbooks from {cookbook.author} and the FlavorMind community
+              Check out other cookbooks from {author} and the FlavorMind community
             </Text>
             <TouchableOpacity 
               style={styles.exploreButton}

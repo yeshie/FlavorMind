@@ -48,14 +48,21 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   }, []);
 
   const googleClientIds = {
-    expoClientId: process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
+    expoClientId:
+      process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID
+      || 'MISSING_GOOGLE_EXPO_CLIENT_ID',
     iosClientId:
       process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
       || process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID
       || process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
       || 'MISSING_GOOGLE_IOS_CLIENT_ID',
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    androidClientId:
+      process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID
+      || 'MISSING_GOOGLE_ANDROID_CLIENT_ID',
+    webClientId:
+      process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
+      || process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID
+      || 'MISSING_GOOGLE_WEB_CLIENT_ID',
   };
 
   const redirectUri = makeRedirectUri({
@@ -71,12 +78,24 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     selectAccount: true,
   });
 
-  const hasGoogleConfig = Boolean(
-    process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID
-      || process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
-      || process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID
-      || process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
-  );
+  const hasGoogleConfig = (() => {
+    if (Platform.OS === 'android') {
+      return Boolean(process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID);
+    }
+
+    if (Platform.OS === 'ios') {
+      return Boolean(
+        process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
+          || process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID
+          || process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
+      );
+    }
+
+    return Boolean(
+      process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
+        || process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID
+    );
+  })();
 
   useEffect(() => {
     const handleGoogleResponse = async () => {

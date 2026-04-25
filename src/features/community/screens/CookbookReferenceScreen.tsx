@@ -31,6 +31,18 @@ const CookbookReferenceScreen: React.FC<CookbookReferenceScreenProps> = ({
   route 
 }) => {
   const { cookbook } = route.params;
+  const coverImage = cookbook.coverImage || cookbook.coverImageUrl || '';
+  const rating = Number(cookbook.rating || cookbook.ratingAverage || 0);
+  const author = cookbook.author || cookbook.authorName || 'Community Chef';
+  const recipesCount = cookbook.recipesCount || cookbook.recipes?.length || 0;
+  const categories = Array.isArray(cookbook.categories) && cookbook.categories.length
+    ? cookbook.categories
+    : ['Community', 'Cookbook'];
+  const previewText =
+    cookbook.introduction
+    || cookbook.aboutAuthor
+    || 'A community cookbook shared through FlavorMind.';
+  const ratingCount = Number(cookbook.ratingCount || 0);
 
   const handleNext = () => {
     navigation.navigate('CookbookIntroduction', { cookbook });
@@ -59,14 +71,14 @@ const CookbookReferenceScreen: React.FC<CookbookReferenceScreenProps> = ({
         {/* Cookbook Cover */}
         <View style={styles.coverContainer}>
           <Image
-            source={{ uri: cookbook.coverImage }}
+            source={coverImage ? { uri: coverImage } : require('../../../assets/icon.png')}
             style={styles.coverImage}
             resizeMode="cover"
           />
           <View style={styles.coverOverlay}>
             <View style={styles.ratingBadge}>
               <Star size={scaleFontSize(18)} color={COLORS.pastelOrange.main} strokeWidth={2} style={styles.starIcon} />
-              <Text style={styles.ratingText}>{cookbook.rating}</Text>
+              <Text style={styles.ratingText}>{rating > 0 ? rating.toFixed(1) : '--'}</Text>
             </View>
           </View>
         </View>
@@ -74,35 +86,31 @@ const CookbookReferenceScreen: React.FC<CookbookReferenceScreenProps> = ({
         {/* Book Info */}
         <View style={styles.infoCard}>
           <Text style={styles.bookTitle}>{cookbook.title}</Text>
-          <Text style={styles.bookAuthor}>by {cookbook.author}</Text>
+          <Text style={styles.bookAuthor}>by {author}</Text>
 
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <BookOpen size={scaleFontSize(18)} color={COLORS.text.secondary} strokeWidth={2} style={styles.statIcon} />
-              <Text style={styles.statText}>{cookbook.recipesCount} Recipes</Text>
+              <Text style={styles.statText}>{recipesCount} Recipes</Text>
             </View>
             <View style={styles.statItem}>
               <Users size={scaleFontSize(18)} color={COLORS.text.secondary} strokeWidth={2} style={styles.statIcon} />
-              <Text style={styles.statText}>2.4k Readers</Text>
+              <Text style={styles.statText}>
+                {ratingCount > 0 ? `${ratingCount} Ratings` : 'New'}
+              </Text>
             </View>
           </View>
 
           <View style={styles.tagsContainer}>
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>Traditional</Text>
-            </View>
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>Sri Lankan</Text>
-            </View>
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>Home Cooking</Text>
-            </View>
+            {categories.slice(0, 4).map((category: string) => (
+              <View key={category} style={styles.tag}>
+                <Text style={styles.tagText}>{category}</Text>
+              </View>
+            ))}
           </View>
 
           <Text style={styles.previewText}>
-            Discover the authentic flavors of Sri Lankan cuisine through this carefully curated 
-            collection of traditional recipes. Each dish has been tested and perfected to bring 
-            you the true taste of home cooking.
+            {previewText}
           </Text>
         </View>
 

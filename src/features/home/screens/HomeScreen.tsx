@@ -25,6 +25,7 @@ import RecommendationFeed from '../components/RecommendationFeed/RecommendationF
 import { SeasonalItem, FeatureItem, RecipeRecommendation } from '../types/home.types';
 import { getCurrentUser } from '../../../services/firebase/authService';
 import recipeService, { Recipe } from '../../../services/api/recipe.service';
+import memoryService from '../../../services/api/memory.service';
 import seasonalService, { SeasonalFood } from '../../../services/api/seasonal.service';
 import userService, { UserProfile } from '../../../services/api/user.service';
 import useRecommendations from '../hooks/useRecommendations';
@@ -293,19 +294,34 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
     setCreatingMemory(true);
     try {
-      const similarResponse = await recipeService.getSimilarRecipes({
-        q: query.trim(),
-        limit: 6,
+      const prompt = query.trim();
+      const memoryResponse = await memoryService.createMemory({
+        description: prompt,
+        isVoiceInput: false,
       });
-      const recipes = similarResponse.data.recipes || [];
       navigation.navigate('SimilarDishesScreen', {
-        memoryQuery: query.trim(),
-        similarDishes: recipes,
+        memoryQuery: prompt,
+        memoryId: memoryResponse.data.memory?.id,
       });
       setMemoryQuery('');
     } catch (error) {
       console.error('Create memory error:', error);
-      Alert.alert('Error', 'Could not generate recipes right now.');
+      try {
+        const prompt = query.trim();
+        const similarResponse = await recipeService.getSimilarRecipes({
+          q: prompt,
+          limit: 6,
+        });
+        const recipes = similarResponse.data.recipes || [];
+        navigation.navigate('SimilarDishesScreen', {
+          memoryQuery: prompt,
+          similarDishes: recipes,
+        });
+        setMemoryQuery('');
+      } catch (searchError) {
+        console.error('Memory search error:', searchError);
+        Alert.alert('Error', 'Could not generate recipes right now.');
+      }
     } finally {
       setCreatingMemory(false);
     }

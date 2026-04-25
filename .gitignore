@@ -9,6 +9,11 @@ dist/
 web-build/
 expo-env.d.ts
 
+# local assistant/tool caches
+.qodo/
+.sixth/
+.vscode/
+
 # Native
 .kotlin/
 *.orig.*

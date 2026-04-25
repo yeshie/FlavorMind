@@ -19,8 +19,7 @@ import {
   Auth,
   onAuthStateChanged,
 } from 'firebase/auth';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { auth, hasFirebaseConfig, storage } from './firebase';
+import { auth, hasFirebaseConfig } from './firebase';
 import { API_CONFIG } from '../../constants/config';
 
 const API_BASE_URL = API_CONFIG.BASE_URL;
@@ -194,7 +193,7 @@ const uploadProfilePhotoWithApi = async (
 ) => {
   const uploadWithToken = async (authToken: string | null) => {
     const uploadResponse = await apiClient.post(
-      '/recipes/upload-image',
+      '/users/upload-profile-image',
       buildProfilePhotoFormData(photoUri, fileName, contentType),
       {
         headers: {
@@ -233,22 +232,6 @@ const uploadProfilePhoto = async (user: User, photoUri: string) => {
   const userId = user.uid;
   const { extension, contentType } = getImageMimeType(photoUri);
   const fileName = `profile_${userId}_${Date.now()}.${extension}`;
-
-  if (storage) {
-    try {
-      const response = await fetch(photoUri);
-      const blob = await response.blob();
-      const storageRef = ref(
-        storage,
-        `profile-photos/${userId}/avatar-${Date.now()}.${extension}`
-      );
-
-      await uploadBytes(storageRef, blob, { contentType });
-      return await getDownloadURL(storageRef);
-    } catch (storageError) {
-      console.warn('Firebase Storage profile upload failed, falling back to API upload:', storageError);
-    }
-  }
 
   return await uploadProfilePhotoWithApi(user, photoUri, fileName, contentType);
 };

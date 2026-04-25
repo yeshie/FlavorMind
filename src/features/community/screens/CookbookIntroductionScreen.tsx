@@ -28,6 +28,14 @@ const CookbookIntroductionScreen: React.FC<CookbookIntroductionScreenProps> = ({
   route 
 }) => {
   const { cookbook } = route.params;
+  const coverImage = cookbook.introImageUrl || cookbook.coverImage || cookbook.coverImageUrl || '';
+  const author = cookbook.author || cookbook.authorName || 'Community Chef';
+  const recipesCount = cookbook.recipesCount || cookbook.recipes?.length || 0;
+  const categories = Array.isArray(cookbook.categories) ? cookbook.categories : [];
+  const introduction =
+    cookbook.introduction
+    || cookbook.aboutAuthor
+    || 'This cookbook brings together recipes shared by the FlavorMind community.';
 
   const handleNext = () => {
     navigation.navigate('CookbookRecipePage', { 
@@ -75,7 +83,7 @@ const CookbookIntroductionScreen: React.FC<CookbookIntroductionScreenProps> = ({
           
           {/* Cookbook Cover Image */}
           <Image
-            source={{ uri: cookbook.coverImage }}
+            source={coverImage ? { uri: coverImage } : require('../../../assets/icon.png')}
             style={styles.introImage}
             resizeMode="cover"
           />
@@ -83,21 +91,17 @@ const CookbookIntroductionScreen: React.FC<CookbookIntroductionScreenProps> = ({
           {/* Author Card */}
           <View style={styles.authorCard}>
             <Text style={styles.authorLabel}>A Note from the Author</Text>
-            <Text style={styles.authorName}>{cookbook.author}</Text>
+            <Text style={styles.authorName}>{author}</Text>
           </View>
 
           {/* Introduction Paragraphs */}
           <Text style={styles.introText}>
-            Growing up in Sri Lanka, food was always the heart of our family gatherings. 
-            The aroma of freshly ground spices, the sizzle of curry leaves in hot oil, 
-            and the warmth of sharing meals with loved ones--these are the memories that 
-            inspired this cookbook.
+            {introduction}
           </Text>
 
           <Text style={styles.introText}>
-            In these pages, you'll discover {cookbook.recipesCount} authentic Sri Lankan recipes, 
-            each one carefully selected to represent the rich culinary heritage of our island. 
-            From traditional curries to modern twists on classic dishes, every recipe tells a story.
+            In these pages, you'll discover {recipesCount} recipes selected by {author}.
+            {categories.length ? ` Categories include ${categories.join(', ')}.` : ''}
           </Text>
 
           {/* Highlight Box */}
@@ -111,26 +115,22 @@ const CookbookIntroductionScreen: React.FC<CookbookIntroductionScreenProps> = ({
             <View style={styles.highlightContent}>
               <Text style={styles.highlightTitle}>What Makes This Special</Text>
               <Text style={styles.highlightText}>
-                - Authentic family recipes passed down through generations{'\n'}
-                - Local ingredient alternatives and substitutes{'\n'}
-                - Step-by-step guidance with helpful tips{'\n'}
-                - Cultural insights and cooking techniques{'\n'}
-                - Beautiful photography for every dish
+                - Recipes selected by the cookbook author{'\n'}
+                - Step-by-step guidance from saved recipe details{'\n'}
+                - Local ingredient notes where the author provided them{'\n'}
+                - A collection you can save and revisit
               </Text>
             </View>
           </View>
 
           {/* More Introduction Text */}
           <Text style={styles.introText}>
-            Whether you're a beginner or an experienced cook, these recipes are designed 
-            to be accessible and enjoyable. Each dish has been tested multiple times to 
-            ensure perfect results every time you cook.
+            Follow each recipe at your pace and use the recreate option when you want
+            FlavorMind to help adapt a dish to your kitchen.
           </Text>
 
           <Text style={styles.introText}>
-            I believe that cooking is not just about following instructions--it's about 
-            understanding the ingredients, feeling the textures, and tasting as you go. 
-            Let's embark on this flavorful journey together!
+            {cookbook.thankYouMessage || 'Start with the first recipe when you are ready.'}
           </Text>
 
           {/* Journey Info Box */}
@@ -146,16 +146,16 @@ const CookbookIntroductionScreen: React.FC<CookbookIntroductionScreenProps> = ({
             </View>
             <View style={styles.journeyStats}>
               <View style={styles.journeyStat}>
-                <Text style={styles.journeyStatNumber}>{cookbook.recipesCount}</Text>
+                <Text style={styles.journeyStatNumber}>{recipesCount}</Text>
                 <Text style={styles.journeyStatLabel}>Recipes</Text>
               </View>
               <View style={styles.journeyStat}>
-                <Text style={styles.journeyStatNumber}>50+</Text>
-                <Text style={styles.journeyStatLabel}>Photos</Text>
+                <Text style={styles.journeyStatNumber}>{categories.length || 1}</Text>
+                <Text style={styles.journeyStatLabel}>Categories</Text>
               </View>
               <View style={styles.journeyStat}>
-                <Text style={styles.journeyStatNumber}>100+</Text>
-                <Text style={styles.journeyStatLabel}>Tips</Text>
+                <Text style={styles.journeyStatNumber}>1</Text>
+                <Text style={styles.journeyStatLabel}>Collection</Text>
               </View>
             </View>
           </View>

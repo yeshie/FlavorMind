@@ -20,6 +20,7 @@ import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import { buildRemoteImageSource } from '../../../common/utils';
 import Button from '../../../common/components/Button/button';
 import recipeService from '../../../services/api/recipe.service';
+import memoryService from '../../../services/api/memory.service';
 import { getRecallHistory, RecallHistoryEntry } from '../../../services/storage/asyncStorage';
 
 interface MemoryScreenProps {
@@ -98,27 +99,41 @@ const MemoryScreen: React.FC<MemoryScreenProps> = ({ navigation }) => {
     Alert.alert('Voice Input', 'Voice recognition activated');
   };
 
-  const handleGenerateRecipe = () => {
+  const handleGenerateRecipe = async () => {
     if (!memoryQuery.trim()) {
       Alert.alert('Memory Required', 'Please describe your food memory first');
       return;
     }
+
+    const prompt = memoryQuery.trim();
     setCreatingMemory(true);
-    recipeService
-      .getSimilarRecipes({ q: memoryQuery.trim(), limit: 6 })
-      .then((response) => {
+    try {
+      const response = await memoryService.createMemory({
+        description: prompt,
+        isVoiceInput: false,
+      });
+      navigation.navigate('SimilarDishesScreen', {
+        memoryQuery: prompt,
+        memoryId: response.data.memory?.id,
+      });
+      setMemoryQuery('');
+    } catch (error) {
+      console.error('Memory creation error:', error);
+      try {
+        const response = await recipeService.getSimilarRecipes({ q: prompt, limit: 6 });
         const recipes = response.data.recipes || [];
         navigation.navigate('SimilarDishesScreen', {
-          memoryQuery: memoryQuery.trim(),
+          memoryQuery: prompt,
           similarDishes: recipes,
         });
         setMemoryQuery('');
-      })
-      .catch((error) => {
-        console.error('Memory search error:', error);
+      } catch (searchError) {
+        console.error('Memory search error:', searchError);
         Alert.alert('Error', 'Could not generate recipes right now.');
-      })
-      .finally(() => setCreatingMemory(false));
+      }
+    } finally {
+      setCreatingMemory(false);
+    }
   };
 
   const handleMemoryHistoryPress = (memory: MemoryHistory) => {

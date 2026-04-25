@@ -16,6 +16,7 @@ import { MessageCircle, Star } from 'lucide-react-native';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS, SHADOWS } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../../common/utils/responsive';
 import recipeStore, { FirestoreRecipe } from '../../../services/firebase/recipeStore';
+import cookbookStore, { FirestoreCookbook } from '../../../services/firebase/cookbookStore';
 import { hasFirebaseConfig } from '../../../services/firebase/firebase';
 import feedbackService from '../../../services/api/feedback.service';
 
@@ -42,6 +43,14 @@ interface Cookbook {
   coverImage: string;
   rating: number;
   recipesCount: number;
+  recipes?: string[];
+  categories?: string[];
+  introduction?: string;
+  aboutAuthor?: string;
+  thankYouMessage?: string;
+  introImageUrl?: string | null;
+  thankYouImageUrl?: string | null;
+  source?: string;
 }
 
 const DigitalCommitteeScreen: React.FC<DigitalCommitteeScreenProps> = ({ navigation }) => {
@@ -50,6 +59,7 @@ const DigitalCommitteeScreen: React.FC<DigitalCommitteeScreenProps> = ({ navigat
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [approvedRecipes, setApprovedRecipes] = useState<FirestoreRecipe[]>([]);
+  const [approvedCookbooks, setApprovedCookbooks] = useState<FirestoreCookbook[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [feedbackSummaryByRecipe, setFeedbackSummaryByRecipe] = useState<
     Record<string, { averageRating: number; totalReviews: number }>
@@ -119,10 +129,31 @@ const DigitalCommitteeScreen: React.FC<DigitalCommitteeScreenProps> = ({ navigat
     []
   );
 
+  const mapCookbookCard = useCallback(
+    (cookbook: FirestoreCookbook): Cookbook => ({
+      id: cookbook.id,
+      title: cookbook.title || 'Community Cookbook',
+      author: cookbook.authorName || 'Community Chef',
+      coverImage: cookbook.coverImageUrl || '',
+      rating: Number(cookbook.ratingAverage || 0),
+      recipesCount: cookbook.recipesCount || cookbook.recipes?.length || 0,
+      recipes: cookbook.recipes || [],
+      categories: cookbook.categories || [],
+      introduction: cookbook.introduction || '',
+      aboutAuthor: cookbook.aboutAuthor || '',
+      thankYouMessage: cookbook.thankYouMessage || '',
+      introImageUrl: cookbook.introImageUrl || null,
+      thankYouImageUrl: cookbook.thankYouImageUrl || null,
+      source: cookbook.source || 'community',
+    }),
+    []
+  );
+
   const loadCommunityRecipes = useCallback(
     async (isRefresh = false) => {
       if (!hasFirebaseConfig) {
         setApprovedRecipes([]);
+        setApprovedCookbooks([]);
         setLoading(false);
         setRefreshing(false);
         return;
@@ -135,8 +166,12 @@ const DigitalCommitteeScreen: React.FC<DigitalCommitteeScreenProps> = ({ navigat
       }
 
       try {
-        const recipes = await recipeStore.getApprovedRecipes();
+        const [recipes, cookbooks] = await Promise.all([
+          recipeStore.getApprovedRecipes(),
+          cookbookStore.getApprovedCookbooks(),
+        ]);
         setApprovedRecipes(recipes);
+        setApprovedCookbooks(cookbooks);
         setLoadError(null);
       } catch (error) {
         console.error('Digital committee load error:', error);
@@ -144,6 +179,7 @@ const DigitalCommitteeScreen: React.FC<DigitalCommitteeScreenProps> = ({ navigat
           (error as any)?.message || (error as any)?.toString?.() || 'Unknown error'
         );
         setApprovedRecipes([]);
+        setApprovedCookbooks([]);
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -213,6 +249,7 @@ const DigitalCommitteeScreen: React.FC<DigitalCommitteeScreenProps> = ({ navigat
       coverImage: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600',
       rating: 4.9,
       recipesCount: 25,
+      source: 'demo',
     },
     {
       id: '2',
@@ -221,6 +258,7 @@ const DigitalCommitteeScreen: React.FC<DigitalCommitteeScreenProps> = ({ navigat
       coverImage: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600',
       rating: 4.8,
       recipesCount: 30,
+      source: 'demo',
     },
     {
       id: '3',
@@ -229,6 +267,7 @@ const DigitalCommitteeScreen: React.FC<DigitalCommitteeScreenProps> = ({ navigat
       coverImage: 'https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=600',
       rating: 4.7,
       recipesCount: 20,
+      source: 'demo',
     },
   ];
 
@@ -276,6 +315,34 @@ const DigitalCommitteeScreen: React.FC<DigitalCommitteeScreenProps> = ({ navigat
       );
     });
   }, [approvedRecipes, popularRecipes, searchQuery, selectedFilter, mapRecipeCard]);
+
+  const displayedCookbooks = useMemo(() => {
+    const sourceCookbooks = hasFirebaseConfig
+      ? approvedCookbooks.map(mapCookbookCard)
+      : popularCookbooks;
+
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    const activeFilter = selectedFilter.toLowerCase();
+
+    return sourceCookbooks.filter((cookbook) => {
+      if (activeFilter !== 'all') {
+        const categories = cookbook.categories || [];
+        const haystack = [cookbook.title, cookbook.author, ...categories]
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(activeFilter)) {
+          return false;
+        }
+      }
+
+      if (!normalizedQuery) return true;
+      return (
+        cookbook.title.toLowerCase().includes(normalizedQuery) ||
+        cookbook.author.toLowerCase().includes(normalizedQuery) ||
+        (cookbook.introduction || '').toLowerCase().includes(normalizedQuery)
+      );
+    });
+  }, [approvedCookbooks, popularCookbooks, searchQuery, selectedFilter, mapCookbookCard]);
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -470,12 +537,17 @@ const DigitalCommitteeScreen: React.FC<DigitalCommitteeScreenProps> = ({ navigat
             <Text style={styles.sectionSubtitle}>Curated collections</Text>
           </View>
 
+          {!loading && displayedCookbooks.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>No cookbooks match your search.</Text>
+            </View>
+          ) : (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.cookbookScroll}
           >
-            {popularCookbooks.map((cookbook) => (
+            {displayedCookbooks.map((cookbook) => (
               <TouchableOpacity
                 key={cookbook.id}
                 style={styles.cookbookCard}
@@ -483,7 +555,11 @@ const DigitalCommitteeScreen: React.FC<DigitalCommitteeScreenProps> = ({ navigat
                 activeOpacity={0.9}
               >
                 <Image
-                  source={{ uri: cookbook.coverImage }}
+                  source={
+                    cookbook.coverImage
+                      ? { uri: cookbook.coverImage }
+                      : require('../../../assets/icon.png')
+                  }
                   style={styles.cookbookCover}
                   resizeMode="cover"
                 />
@@ -497,7 +573,9 @@ const DigitalCommitteeScreen: React.FC<DigitalCommitteeScreenProps> = ({ navigat
                   <View style={styles.cookbookStats}>
                     <View style={styles.cookbookStat}>
                       <Star size={scaleFontSize(14)} color={COLORS.pastelOrange.main} strokeWidth={2} style={styles.starIcon} />
-                      <Text style={styles.cookbookRating}>{cookbook.rating}</Text>
+                      <Text style={styles.cookbookRating}>
+                        {cookbook.rating > 0 ? cookbook.rating.toFixed(1) : '--'}
+                      </Text>
                     </View>
                     <Text style={styles.recipeCount}>
                       {cookbook.recipesCount} recipes
@@ -507,6 +585,7 @@ const DigitalCommitteeScreen: React.FC<DigitalCommitteeScreenProps> = ({ navigat
               </TouchableOpacity>
             ))}
           </ScrollView>
+          )}
         </View>
 
         <View style={styles.bottomSpacer} />

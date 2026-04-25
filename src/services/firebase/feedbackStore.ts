@@ -155,6 +155,15 @@ const feedbackStore = {
     return snapshot.docs.map(mapFeedbackDoc);
   },
 
+  async getUserFeedback(userId: string, maxCount = 20): Promise<FirestoreFeedback[]> {
+    const firestore = requireDb();
+    const feedbackRef = collection(firestore, 'users', userId, 'feedback');
+    const snapshot = await getDocs(
+      query(feedbackRef, orderBy('updatedAt', 'desc'), limit(maxCount))
+    );
+    return snapshot.docs.map(mapFeedbackDoc);
+  },
+
   async replyToFeedback(recipeId: string, feedbackId: string, reply: string): Promise<void> {
     const firestore = requireDb();
     const feedbackRef = doc(firestore, 'recipes', recipeId, 'feedback', feedbackId);

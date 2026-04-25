@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,19 +9,69 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, TYPOGRAPHY, SPACING } from '../../../constants/theme';
 import { moderateScale, scaleFontSize } from '../../utils/responsive';
+import {
+  getCurrentUser,
+  subscribeToAuthChanges,
+} from '../../../services/firebase/authService';
+
+const userIcon = require('../../../assets/icons/user.png');
+
+const toProfileImageUrl = (value?: string | null) => {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+};
 
 interface HeaderProps {
   onNotificationPress?: () => void;
   onProfilePress?: () => void;
+  profileImageUrl?: string | null;
 }
 
 const Header: React.FC<HeaderProps> = ({
   onNotificationPress,
   onProfilePress,
+  profileImageUrl,
 }) => {
   const insets = useSafeAreaInsets();
+  const [currentProfileImageUrl, setCurrentProfileImageUrl] = useState<string | null>(
+    toProfileImageUrl(profileImageUrl)
+  );
+  const [profileImageFailed, setProfileImageFailed] = useState(false);
   const handleNotificationPress = onNotificationPress || (() => {});
   const handleProfilePress = onProfilePress || (() => {});
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadProfileImage = async () => {
+      const propImageUrl = toProfileImageUrl(profileImageUrl);
+      if (propImageUrl) {
+        if (isMounted) {
+          setCurrentProfileImageUrl(propImageUrl);
+        }
+        return;
+      }
+
+      const user = await getCurrentUser();
+      if (isMounted) {
+        setCurrentProfileImageUrl(toProfileImageUrl(user?.photoURL));
+      }
+    };
+
+    void loadProfileImage();
+    const unsubscribe = subscribeToAuthChanges(() => {
+      void loadProfileImage();
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, [profileImageUrl]);
+
+  useEffect(() => {
+    setProfileImageFailed(false);
+  }, [currentProfileImageUrl]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -58,9 +108,14 @@ const Header: React.FC<HeaderProps> = ({
             activeOpacity={0.7}
           >
             <Image
-              source={require('../../../assets/icons/user.png')}
+              source={
+                currentProfileImageUrl && !profileImageFailed
+                  ? { uri: currentProfileImageUrl }
+                  : userIcon
+              }
               style={styles.profileImage}
               resizeMode="cover"
+              onError={() => setProfileImageFailed(true)}
             />
           </TouchableOpacity>
         </View>

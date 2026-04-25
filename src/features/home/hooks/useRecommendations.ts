@@ -3,6 +3,7 @@ import recipeService, { Recipe } from '../../../services/api/recipe.service';
 import { UserProfile } from '../../../services/api/user.service';
 import { getFirebaseUser } from '../../../services/firebase/authService';
 import { hasFirebaseConfig } from '../../../services/firebase/firebase';
+import feedbackStore, { FirestoreFeedback } from '../../../services/firebase/feedbackStore';
 import recipeStore, { SavedRecipeDoc } from '../../../services/firebase/recipeStore';
 import {
   getRecipeActivity,
@@ -135,6 +136,25 @@ const buildSavedRecipeSignals = (
     const weight = Math.max(3, 6 - index * 0.4);
     addPhraseAndTokens(keywordScores, recipe.title, weight);
     addCuisineSignals(cuisineScores, recipe.title, weight);
+  });
+};
+
+const buildFeedbackSignals = (
+  feedback: FirestoreFeedback[],
+  keywordScores: Map<string, number>,
+  cuisineScores: Map<string, number>,
+  negativeTerms: Map<string, number>
+) => {
+  feedback.forEach((entry, index) => {
+    const recencyWeight = Math.max(1, 5 - index * 0.35);
+    const dishName = entry.dishName || entry.comment || entry.publicComment || '';
+
+    if (entry.rating >= 4) {
+      addPhraseAndTokens(keywordScores, dishName, recencyWeight + entry.rating);
+      addCuisineSignals(cuisineScores, dishName, recencyWeight);
+    } else if (entry.rating > 0 && entry.rating <= 2) {
+      tokenize(dishName).forEach((term) => addScore(negativeTerms, term, 3));
+    }
   });
 };
 
@@ -277,17 +297,21 @@ export const useRecommendations = () => {
   const loadRecommendations = useCallback(
     async (profile?: UserProfile | null): Promise<PersonalizedRecommendationsResult> => {
       const firebaseUser = getFirebaseUser();
-      const [searchResult, activityResult, savedRecipesResult] = await Promise.allSettled([
+      const [searchResult, activityResult, savedRecipesResult, feedbackResult] = await Promise.allSettled([
         getSearchHistory(),
         getRecipeActivity(),
         hasFirebaseConfig && firebaseUser
           ? recipeStore.getSavedRecipes(firebaseUser.uid)
           : Promise.resolve([] as SavedRecipeDoc[]),
+        hasFirebaseConfig && firebaseUser
+          ? feedbackStore.getUserFeedback(firebaseUser.uid)
+          : Promise.resolve([] as FirestoreFeedback[]),
       ]);
 
       const searchHistory = searchResult.status === 'fulfilled' ? searchResult.value : [];
       const activityHistory = activityResult.status === 'fulfilled' ? activityResult.value : [];
       const savedRecipes = savedRecipesResult.status === 'fulfilled' ? savedRecipesResult.value : [];
+      const userFeedback = feedbackResult.status === 'fulfilled' ? feedbackResult.value : [];
 
       const keywordScores = new Map<string, number>();
       const cuisineScores = new Map<string, number>();
@@ -297,6 +321,7 @@ export const useRecommendations = () => {
       buildSearchSignals(searchHistory, keywordScores, cuisineScores);
       buildActivitySignals(activityHistory, keywordScores, cuisineScores);
       buildSavedRecipeSignals(savedRecipes, keywordScores, cuisineScores);
+      buildFeedbackSignals(userFeedback, keywordScores, cuisineScores, negativeTerms);
 
       const hasSignals = hasBehaviorSignals(keywordScores, cuisineScores, negativeTerms);
       if (!hasSignals) {

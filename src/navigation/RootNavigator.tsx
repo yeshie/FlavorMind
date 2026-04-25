@@ -67,7 +67,7 @@ type RootStackParamList = {
   Feedback: { [key: string]: any };
   LocalAdaptation: undefined;
   SeasonalFood: { food: any };
-  AddRecipe: undefined;
+  AddRecipe: { recipe?: any; isEdit?: boolean } | undefined;
   AddAdaptation: undefined;
   IngredientGuide: { [key: string]: any };
   SmartScaling: undefined;
@@ -76,7 +76,7 @@ type RootStackParamList = {
   DigitalCommittee: undefined;
   RecipeDescription: { recipeId?: string; recipe?: any; openComments?: boolean };
   CookbookReference: { cookbook: any };
-  CookbookIntroduction: { cookbookId: string };
+  CookbookIntroduction: { cookbook: any };
   CookbookRecipePage: {
     cookbook: any;
     recipeIndex: number;
