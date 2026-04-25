@@ -276,10 +276,30 @@ The admin login user must have this Firebase custom claim:
 7. How To Run The Full Application
 ----------------------------------
 
-To run the full FlavorMind application, open four separate terminals.
+To run the full FlavorMind application, open separate terminals.
 
 
-Terminal 1: Run Backend API
+Terminal 1: Open Ollama
+-----------------------
+
+Open the Ollama desktop app first.
+
+If you use command line, run:
+
+ollama serve
+
+
+Terminal 2: Run Ngrok For Backend
+---------------------------------
+
+If you need a public backend URL, run:
+
+ngrok http 5000
+
+Keep this terminal open while testing.
+
+
+Terminal 3: Run Backend API
 ---------------------------
 
 cd D:\DegreeFinal\FlavorMind-Backend
@@ -291,10 +311,10 @@ http://localhost:5000/health
 http://localhost:5000/api/status
 
 
-Terminal 2: Create And Run AI Model Service
+Terminal 4: Create And Run AI Model Service
 -------------------------------------------
 
-First create the Ollama model:
+First create the Ollama model if it is not already created:
 
 cd D:\DegreeFinal\flavormind-train_model
 ollama create flavormind -f Modelfile
@@ -303,8 +323,9 @@ ollama show flavormind
 Then run the Python AI service:
 
 cd D:\DegreeFinal\FlavorMind-Backend
-set OLLAMA_MODEL=flavormind
-set OLLAMA_GENERATE_MODEL=flavormind
+$env:OLLAMA_MODEL="flavormind"
+$env:OLLAMA_GENERATE_MODEL="flavormind"
+$env:PUBLIC_BASE_URL="http://127.0.0.1:5000"
 uvicorn ai.app:app --reload --host 0.0.0.0 --port 8000
 
 Check in browser:
@@ -313,11 +334,18 @@ http://127.0.0.1:8000/health
 http://127.0.0.1:8000/recipes/similar?q=chicken%20curry
 
 
-Terminal 3: Run Mobile App
+Terminal 5: Run Mobile App
 --------------------------
 
+For Wi-Fi/LAN mode:
+
 cd D:\DegreeFinal\FlavorMind
-npx expo start -c
+npx expo start
+
+For hotspot or tunnel mode:
+
+cd D:\DegreeFinal\FlavorMind
+npx expo start -tunnel
 
 Then choose one option:
 
@@ -332,7 +360,7 @@ For a real phone:
 * Windows Firewall must allow Node, Expo, and Python network access.
 
 
-Terminal 4: Run Admin Panel
+Terminal 6: Run Admin Panel
 ---------------------------
 
 cd D:\DegreeFinal\FlavorMindAdmin

@@ -206,9 +206,21 @@ Keep `.env`, `firebaseKey.json`, and service account files private.
 
 Open separate terminals and run these commands.
 
+Open Ollama first. You can open the Ollama desktop app or run:
+
+```powershell
+ollama serve
+```
+
+If you need a public backend URL, run ngrok in another terminal:
+
+```powershell
+ngrok http 5000
+```
+
 Run the backend API:
 
-```bash
+```powershell
 cd D:\DegreeFinal\FlavorMind-Backend
 npm run dev
 ```
@@ -220,9 +232,9 @@ http://localhost:5000/health
 http://localhost:5000/api/status
 ```
 
-Create the local Ollama model:
+Create the local Ollama model if it is not already created:
 
-```bash
+```powershell
 cd D:\DegreeFinal\flavormind-train_model
 ollama create flavormind -f Modelfile
 ollama show flavormind
@@ -230,10 +242,11 @@ ollama show flavormind
 
 Run the Python AI service:
 
-```bash
+```powershell
 cd D:\DegreeFinal\FlavorMind-Backend
-set OLLAMA_MODEL=flavormind
-set OLLAMA_GENERATE_MODEL=flavormind
+$env:OLLAMA_MODEL="flavormind"
+$env:OLLAMA_GENERATE_MODEL="flavormind"
+$env:PUBLIC_BASE_URL="http://127.0.0.1:5000"
 uvicorn ai.app:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -244,11 +257,18 @@ http://127.0.0.1:8000/health
 http://127.0.0.1:8000/recipes/similar?q=chicken%20curry
 ```
 
-Run the mobile app:
+Run the mobile app for Wi-Fi/LAN:
 
-```bash
+```powershell
 cd D:\DegreeFinal\FlavorMind
-npx expo start -c
+npx expo start
+```
+
+Run the mobile app for hotspot/tunnel mode:
+
+```powershell
+cd D:\DegreeFinal\FlavorMind
+npx expo start -tunnel
 ```
 
 Then press `a` for the Android emulator or scan the QR code with Expo Go.
