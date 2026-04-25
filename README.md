@@ -1,18 +1,21 @@
 # FlavorMind
+
 > A mobile culinary assistant for memory-based recipe discovery, AI recipe generation, Sri Lankan ingredient adaptation, smart scaling, cookbooks, community sharing, and admin moderation.
 
 ---
 
 ## 1. What I Have Done
+
 This section outlines the work completed for this assignment/project.
 
-* **Feature Implementation:** Developed the Expo React Native mobile app with authentication, home, memory search, recipe generation, adaptation, scaling, cookbook, community, notifications, feedback, and profile screens.
-* **Database Integration:** Connected Firebase Authentication and Cloud Firestore to store users, saved recipes, draft recipes, cookbooks, public recipes, feedback, cooking history, notifications, and ingredient substitutions.
-* **API Development:** Integrated the mobile app with a Node.js Express backend API and a Python AI service for recipe retrieval, recipe generation, local adaptation, seasonal food data, and smart recipe scaling.
-* **UI/UX Design:** Built a responsive mobile interface using React Native, Expo, React Navigation, reusable components, and a shared theme system.
-* **Logic & Algorithms:** Implemented memory-based recipe discovery using FAISS retrieval, AI-assisted recipe generation through Ollama/LLaMA, recommendation scoring from user activity, and serving-size scaling logic.
+- **Feature Implementation:** Developed the Expo React Native mobile app with authentication, home, memory search, recipe generation, adaptation, scaling, cookbook, community, notifications, feedback, and profile screens.
+- **Database Integration:** Connected Firebase Authentication and Cloud Firestore to store users, saved recipes, draft recipes, cookbooks, public recipes, feedback, cooking history, notifications, and ingredient substitutions.
+- **API Development:** Integrated the mobile app with a Node.js Express backend API and a Python AI service for recipe retrieval, recipe generation, local adaptation, seasonal food data, and smart recipe scaling.
+- **UI/UX Design:** Built a responsive mobile interface using React Native, Expo, React Navigation, reusable components, and a shared theme system.
+- **Logic & Algorithms:** Implemented memory-based recipe discovery using FAISS retrieval, AI-assisted recipe generation through Ollama/LLaMA, recommendation scoring from user activity, and serving-size scaling logic.
 
 ## 2. Key Features
+
 - Memory-based recipe search from taste, smell, texture, or remembered dish descriptions.
 - AI recipe generation using FAISS retrieval and Ollama/LLaMA.
 - Sri Lankan local ingredient adaptation with approved substitution records and AI fallback.
@@ -24,12 +27,26 @@ This section outlines the work completed for this assignment/project.
 - Admin moderation for recipes, cookbooks, and ingredient swaps.
 
 ## 3. Tech Stack
+
 - **Language:** TypeScript, JavaScript, Python
 - **Framework:** Expo React Native, React Navigation, Node.js Express, FastAPI/Uvicorn, Vite React
 - **Database:** Firebase Authentication, Cloud Firestore, FAISS vector index
 - **Other Tools:** Firebase Admin SDK, Ollama, LLaMA/TinyLlama model artifacts, npm, Expo Go, Android Studio emulator
 
-## 4. Project Structure
+## 4. Model Artefacts
+
+The AI model assets for FlavorMind's memory-based recipe workflow are kept in `D:\DegreeFinal\flavormind-train_model`.
+
+- `tinyllama_flavormind_model`: LoRA adapter files
+- `tinyllama_flavormind_merged`: merged model configuration
+- `tinyllama_flavormind_f16.gguf`: higher-precision GGUF export
+- `flavormind-q4_k_m.gguf`: quantized GGUF used for local Ollama inference
+- `flavormind_faiss_fixed.index`: FAISS retrieval index
+- `flavormind_retrieval_dataset_fixed.csv`: retrieval dataset used by the backend AI service
+- `FlavorMind-AIModel-Train-final.jsonl`: chat-format fine-tuning dataset
+- `Modelfile`: Ollama packaging file for local serving
+
+## 5. Project Structure
 
 ```text
 D:\DegreeFinal
@@ -90,10 +107,12 @@ D:\DegreeFinal
 └── flavormind-train_model/      # AI model files
 ```
 
-## 5. How To Run
+## 6. How To Run
+
 Follow these steps to set up and run the project locally.
 
 ### Step 1: Prerequisites
+
 Ensure you have the following installed:
 
 - Node.js 18 or newer
@@ -104,6 +123,7 @@ Ensure you have the following installed:
 - Firebase project with Authentication and Firestore enabled
 
 ### Step 2: Installation
+
 Install dependencies for each application folder:
 
 ```bash
@@ -125,6 +145,7 @@ npm install
 ```
 
 ### Step 3: Setup Environment
+
 Create `.env` files from the examples:
 
 ```bash
@@ -182,6 +203,7 @@ D:\DegreeFinal\FlavorMind-Backend\firebaseKey.json
 Keep `.env`, `firebaseKey.json`, and service account files private.
 
 ### Step 4: Run the Application
+
 Open separate terminals and run these commands.
 
 Run the backend API:
@@ -246,7 +268,8 @@ http://localhost:5173
 
 When testing on a real phone, use your laptop LAN IP in `EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_AI_URL`. Do not use `localhost` on a phone because it points to the phone itself.
 
-## 6. Testing
+## 7. Testing
+
 To run the available checks, use:
 
 ```bash
@@ -264,12 +287,14 @@ npm run typecheck
 npm run build
 ```
 
-## 7. Contact / Authors
+## 8. Contact / Authors
+
 Name: Your Name  
 Student ID: Your Student ID  
 Email: Your Email
 
 ## Submission Notes
+
 Do not submit generated or private local files:
 
 ```text

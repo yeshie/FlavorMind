@@ -1,8 +1,4 @@
-#!/usr/bin/env node
-// scripts/firebase/set-admin-claim.js
-// Usage:
-//   node scripts/firebase/set-admin-claim.js --uid <USER_UID> --admin true --key <PATH_TO_SERVICE_ACCOUNT_JSON>
-// Or set GOOGLE_APPLICATION_CREDENTIALS and omit --key.
+
 
 const fs = require('fs');
 const path = require('path');

@@ -1,9 +1,3 @@
-#!/usr/bin/env node
-// scripts/firebase/add-pending-recipe.js
-// Usage:
-//   node scripts/firebase/add-pending-recipe.js --key <PATH_TO_SERVICE_ACCOUNT_JSON>
-// Optional:
-//   --owner <USER_UID> (defaults to the provided authorId)
 
 const fs = require('fs');
 const path = require('path');
