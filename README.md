@@ -289,21 +289,6 @@ npm run build
 
 ## 8. Contact / Authors
 
-Name: Your Name  
-Student ID: Your Student ID  
-Email: Your Email
-
-## Submission Notes
-
-Do not submit generated or private local files:
-
-```text
-node_modules
-.expo
-dist
-logs
-uploads
-.env
-firebaseKey.json
-serviceAccountKey.json
-```
+Name: Yeshara Amunugama  
+Student ID: 2523173
+Email: yeshara9044@gmail.com
